@@ -120,14 +120,13 @@ export default function Home() {
           <div 
             className={`bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-md relative transition-all duration-300 ease-out ${isModalVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
           >
-            <button 
-              onClick={handleCloseOtpModal} 
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-2xl p-1 leading-none"
-              aria-label="Close OTP form"
-            >
-              &times;
-            </button>
-            <OtpAuthFlow onSuccess={handleOtpSuccess} />
+            <div className="bg-white rounded-lg">
+              <OtpAuthFlow 
+                onSuccess={handleOtpSuccess} 
+                onClose={handleCloseOtpModal}
+                signInMode="emailOnly"
+              />
+            </div>
           </div>
         </div>
       )}

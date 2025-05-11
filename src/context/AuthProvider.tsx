@@ -13,8 +13,8 @@ type AuthContextType = {
   session: Session | null;
   isLoading: boolean;
   // Combined function to send OTP for both new and existing users
-  sendOtp: (email: string) => Promise<{ error: AuthError | null }>;
-  verifyOtp: (email: string, otp: string) => Promise<{ error: AuthError | null }>;
+  sendOtp: (email: string, name?: string) => Promise<{ error: AuthError | null }>;
+  verifyOtp: (email: string, otp: string, name?: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
 };
 
@@ -48,18 +48,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Sends OTP. Creates user if they don't exist, otherwise sends OTP for login.
-  const sendOtp = async (email: string) => {
+  const sendOtp = async (email: string, name?: string) => {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        shouldCreateUser: true, // Key change: handles both signup and login OTP sending
+        shouldCreateUser: true,
+        data: name ? { name } : undefined,
+        emailRedirectTo: window.location.origin,
+        // Note: Supabase doesn't support customizing the email subject directly
+        // The name will be stored in user metadata and used after verification
       },
     });
     return { error: error as AuthError | null };
   };
 
   // Verifies the OTP for both signup and login.
-  const verifyOtp = async (email: string, otp: string) => {
+  const verifyOtp = async (email: string, otp: string, name?: string) => {
     try {
       const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
         email,
@@ -75,7 +79,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: { message: 'OTP verified, but no session created. Please try again.' } as AuthError };
       }
       
-      // Session is established by verifyOtp itself, no need to set password here
+      // If this is a new sign-up and name is provided, update the user's metadata
+      if (name && verifyData.user && !verifyData.user.user_metadata?.name) {
+        const { error: updateError } = await supabase.auth.updateUser({
+          data: { name }
+        });
+        
+        if (updateError) {
+          console.error('Failed to update user name:', updateError);
+        }
+      }
+      
+      // Session is established by verifyOtp itself
       return { error: null };
     } catch (error) {
       return { error: { message: String(error) } as AuthError };
