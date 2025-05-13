@@ -114,7 +114,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     clearChat();
     
     // Add a welcome message for the joined chat
-    addMessage(`You've joined a temporary chat session. This conversation will be deleted when the session ends.`, 'other', 'System');
+    addMessage(`You&apos;ve joined a temporary chat session. This conversation will be deleted when the session ends.`, 'other', 'System');
   };
 
   return (
