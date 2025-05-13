@@ -13,7 +13,7 @@ import { FaCheckCircle } from 'react-icons/fa';
 type ChatCreationStep = 'initial' | 'hostName' | 'inviteGuest' | 'chatActive';
 
 export default function Dashboard() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, isLoading } = useAuth();
   const router = useRouter();
   
   // States for managing chat creation flow
@@ -27,10 +27,11 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) {
+    // Only redirect if we're certain the user isn't authenticated
+    if (!isLoading && !user) {
       router.push('/');
     }
-  }, [user, router]);
+  }, [user, router, isLoading]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -328,6 +329,14 @@ export default function Dashboard() {
         );
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-white flex items-center justify-center z-[200]">
+        <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600"></div>
+      </div>
+    );
+  }
 
   if (!user) {
     return null; // Will redirect in useEffect
