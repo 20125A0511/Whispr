@@ -28,7 +28,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [chatId, setChatId] = useState<string>('');
   const [lastActivity, setLastActivity] = useState<Date>(new Date());
-  const [isTemporary, setIsTemporary] = useState<boolean>(true);
+  const [isTemporary] = useState<boolean>(true);
 
   // Initialize with a new chat ID when the component mounts
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { FloatingLabelInput } from '@/components/ui/FloatingLabelInput';
 import { useAuth } from '@/context/AuthProvider';
@@ -35,7 +35,6 @@ export default function OtpAuthFlow({
   const emailLabel = showNameField ? "Email or Phone Number" : "Email";
 
   const fieldsForOtpValid = showNameField ? name.trim() !== '' && email.trim() !== '' : email.trim() !== '';
-  const canVerifyOtp = otp.length === 6 && !loading && !verificationStatus;
 
   const handleSendOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -284,10 +283,10 @@ export default function OtpAuthFlow({
               <p className="text-gray-700 text-lg mb-1">
                 {showNameField && name ? (
                   <>
-                    Hi <span className="font-semibold">{name}</span>, we've sent a 6-digit code to
+                    Hi <span className="font-semibold">{name}</span>, we&apos;ve sent a 6-digit code to
                   </>
                 ) : (
-                  "We've sent a 6-digit code to"
+                  "We&apos;ve sent a 6-digit code to"
                 )}
                 <br className="sm:hidden" /> <span className="font-medium text-gray-800 block sm:inline">{email}</span>.
               </p>

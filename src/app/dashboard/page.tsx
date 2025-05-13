@@ -203,7 +203,7 @@ export default function Dashboard() {
             <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 animate-fadeIn">
               <h2 className="text-xl font-medium text-gray-800 mb-4">Invite Participants</h2>
               <p className="text-sm text-gray-600 mb-5">
-                Invite guests to join your chat. You'll be able to start chatting after inviting at least one person.
+                Invite guests to join your chat. You&apos;ll be able to start chatting after inviting at least one person.
               </p>
               
               <form onSubmit={handleInviteGuest} className="space-y-4 mb-6">
