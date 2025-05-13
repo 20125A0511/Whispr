@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { FloatingLabelInput } from '@/components/ui/FloatingLabelInput';
 import { useAuth } from '@/context/AuthProvider';
@@ -24,31 +24,29 @@ export default function OtpAuthFlow({
   const [nameError, setNameError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [otpError, setOtpError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<'email' | 'otp'>('email');
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
-  const [isEmailButtonAnimating, setIsEmailButtonAnimating] = useState(false); // New state for click animation
-  const [isOtpButtonAnimating, setIsOtpButtonAnimating] = useState(false); // New state for OTP button animation
-  const [otpAnimationSuccess, setOtpAnimationSuccess] = useState<boolean | null>(null); // New state for OTP animation color/icon
+  const [isEmailButtonAnimating, setIsEmailButtonAnimating] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState<'verifying' | 'success' | 'error' | null>(null);
+
   const { sendOtp, verifyOtp } = useAuth();
 
   const showNameField = signInMode === 'withName';
   const emailLabel = showNameField ? "Email or Phone Number" : "Email";
 
   const fieldsForOtpValid = showNameField ? name.trim() !== '' && email.trim() !== '' : email.trim() !== '';
-  const canVerifyOtp = otp.length === 6 && !loading;
+  const canVerifyOtp = otp.length === 6 && !loading && !verificationStatus;
 
   const handleSendOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (loading || isEmailButtonAnimating || !fieldsForOtpValid) return;
 
     setIsEmailButtonAnimating(true);
-    setLoading(true); // Keep for disabling inputs, global spinner will be hidden for this step
+    setLoading(true); 
     
     setError(null);
     setNameError(null);
     setEmailError(null);
-    setSuccessMessage(null);
 
     if (showNameField && !name.trim()) {
       setNameError('Please enter your name');
@@ -73,126 +71,109 @@ export default function OtpAuthFlow({
         } else {
           setError(sendError.message);
         }
-        setLoading(false); // Reset loading state on error
-        setIsEmailButtonAnimating(false); // Reset animation on error
+        setLoading(false);
+        setIsEmailButtonAnimating(false); 
       } else {
-        // Success: sendOtp call returned. Button animation (1000ms) is running.
-        // Wait for the button animation to be visually complete before transitioning.
         setTimeout(() => {
-          setIsAnimatingOut(true); // Start fade out of current form
-          setTimeout(() => { // Nested timeout for the fade-out duration
+          setIsAnimatingOut(true); 
+          setTimeout(() => { 
             setCurrentStep('otp');
-            setIsAnimatingOut(false); // Stop fade out
-            setLoading(false); // Release lock *after* transition and animation
-            setIsEmailButtonAnimating(false); // Reset animation *after* transition
-          }, 300); // Duration for the fade-out animation
-        }, 1000); // Wait for button's own animation (1000ms) to complete before starting view transition
+            setVerificationStatus(null);
+            setIsAnimatingOut(false); 
+            setLoading(false); 
+            setIsEmailButtonAnimating(false); 
+          }, 300); 
+        }, 1000); 
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'An error occurred while sending the code');
-      setLoading(false); // Reset loading state on catch
-      setIsEmailButtonAnimating(false); // Reset animation on catch
+      setLoading(false); 
+      setIsEmailButtonAnimating(false); 
     }
-    // No finally block needed as states are reset in each path (success/error/catch)
   };
 
   const handleVerifyOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (loading || isOtpButtonAnimating || otp.length !== 6) return;
+    if (loading || otp.length !== 6 || verificationStatus) return;
 
-    setIsOtpButtonAnimating(true);
-    setLoading(true); // Keep for disabling inputs
-    setError(null);
-    setOtpError(null);
-    setSuccessMessage(null); // Clear previous success message
-
+    console.log(`[${new Date().toISOString()}] handleVerifyOtp START (New Flow)`);
+    
+    // Client-side format check first
     if (!/^\d{6}$/.test(otp)) {
-      setOtpAnimationSuccess(false);
-      setOtpError('Please enter a valid 6-digit verification code');
-      setTimeout(() => {
-        setIsOtpButtonAnimating(false);
-        setOtpAnimationSuccess(null);
-        setLoading(false);
-      }, 1000); // Animation duration
+      console.log(`[${new Date().toISOString()}] Invalid OTP format (client-side).`);
+      setOtpError('Please enter a valid 6-digit verification code.');
+      setVerificationStatus('error'); 
+      // No setLoading(true) needed here as we are not proceeding to forced display
       return;
     }
 
-    try {
-      const nameToSend = showNameField && name.trim() ? name.trim() : undefined;
-      const { error: verifyError } = await verifyOtp(email, otp, nameToSend);
+    setLoading(true); // Disable inputs
+    setVerificationStatus('verifying'); // Show "Verifying OTP..." card
+    setError(null); // Clear previous general errors
+    setOtpError(null); // Clear previous OTP errors
 
-      if (verifyError) {
-        setOtpAnimationSuccess(false);
-        if (verifyError.message === 'Token has expired or is invalid') {
-          setOtpError('The code you entered is incorrect or has expired. Please try again or request a new code.');
+    const forcedVerifyingDisplayDuration = 3000;
+    console.log(`[${new Date().toISOString()}] Starting FORCED ${forcedVerifyingDisplayDuration}ms display of 'verifying' card.`);
+
+    setTimeout(async () => {
+      console.log(`[${new Date().toISOString()}] FORCED ${forcedVerifyingDisplayDuration}ms 'verifying' display FINISHED. Now calling verifyOtp API...`);
+      
+      try {
+        const nameToSend = showNameField && name.trim() ? name.trim() : undefined;
+        const { error: verifyError } = await verifyOtp(email, otp, nameToSend);
+        console.log(`[${new Date().toISOString()}] verifyOtp API call returned. Error:`, verifyError);
+
+        if (verifyError) {
+          console.log(`[${new Date().toISOString()}] OTP VERIFY API ERROR:`, verifyError.message);
+          setOtpError(
+            verifyError.message === 'Token has expired or is invalid'
+              ? 'The code you entered is incorrect or has expired. Please try again or request a new code.'
+              : verifyError.message
+          );
+          setVerificationStatus('error');
+          setLoading(false); // Re-enable form for retry
         } else {
-          setError(verifyError.message); // General error
-        }
-        setTimeout(() => {
-          setIsOtpButtonAnimating(false);
-          setOtpAnimationSuccess(null);
-          setLoading(false);
-        }, 1000); // Allow red animation to play
-      } else {
-        // SUCCESS PATH - COMPLETELY REWRITTEN
-        
-        // First, set initial animation state to green, and show success message
-        setOtpAnimationSuccess(true);
-        setSuccessMessage('Verification successful!');
-        
-        // IMPORTANT: For debugging or dev purposes, uncomment to simulate a slow API response
-        // console.log("OTP Success - animation starting");
-        
-        // Now we'll use a chain of timeouts to control the sequence:
-        
-        // First timeout - just let the green filling animation and checkmark fully play out
-        // The green animation takes about 1000ms to fill and the checkmark appears with a delay of ~900ms
-        // So we need at least 1500ms for full visual effect
-        setTimeout(() => {
-          // IMPORTANT: For debugging, uncomment to see when this executes
-          // console.log("Animation should now be fully visible");
+          console.log(`[${new Date().toISOString()}] OTP VERIFY API SUCCESS. Setting verificationStatus to 'success'.`);
+          setVerificationStatus('success');
           
-          // At this point, the animation is complete and the button is fully green with checkmark
-          // We'll trigger onSuccess after a short additional visual pause to ensure user sees the green state
-          
+          const successCardDisplayDuration = 2000; // Display success card for 2 seconds
+          console.log(`[${new Date().toISOString()}] Starting ${successCardDisplayDuration}ms display for 'success' card.`);
+
           setTimeout(() => {
-            // IMPORTANT: For debugging, uncomment to see when onSuccess is called
-            // console.log("Calling onSuccess now");
-            
-            // NOW we call onSuccess which might navigate away from this component
+            console.log(`[${new Date().toISOString()}] ${successCardDisplayDuration}ms SUCCESS card display FINISHED. Calling onSuccess.`);
             if (onSuccess) {
-              onSuccess();
+              onSuccess(); 
+              console.log(`[${new Date().toISOString()}] onSuccess CALLED.`);
+            } else {
+              console.log(`[${new Date().toISOString()}] onSuccess was NOT defined.`);
             }
             
-            // Reset states with another small delay after calling onSuccess
-            // This ensures that if a navigation occurs, it happens before these resets
-            setTimeout(() => {
-              // IMPORTANT: For debugging, uncomment to see when states are reset
-              // console.log("Resetting component states");
-              
-              setEmail('');
-              if(showNameField) setName('');
-              setOtp('');
-              setSuccessMessage(null);
-              setIsOtpButtonAnimating(false);
-              setOtpAnimationSuccess(null);
-              setLoading(false);
-            }, 300); // Small delay after onSuccess is called
-            
-          }, 500); // Additional pause after animation completes before calling onSuccess
-          
-        }, 1600); // Initial animation time (green fill + checkmark appearance)
-        // END OF REWRITTEN SUCCESS PATH
+            console.log(`[${new Date().toISOString()}] Starting state cleanup post-success.`);
+            setEmail('');
+            if(showNameField) setName('');
+            setOtp('');
+            setVerificationStatus(null); // Hide card
+            setLoading(false); // Ensure form is re-enabled
+            setError(null);
+            setOtpError(null);
+            console.log(`[${new Date().toISOString()}] State cleanup post-success FINISHED.`);
+          }, successCardDisplayDuration);
+        }
+      } catch (err: unknown) {
+        console.error(`[${new Date().toISOString()}] UNEXPECTED ERROR during verifyOtp API call or subsequent logic:`, err);
+        setError(err instanceof Error ? err.message : 'An unexpected error occurred during verification process.');
+        setVerificationStatus('error');
+        setLoading(false); // Re-enable form for retry
       }
-    } catch (err: unknown) {
-      setOtpAnimationSuccess(false);
-      setError(err instanceof Error ? err.message : 'An error occurred during verification');
-      setTimeout(() => {
-        setIsOtpButtonAnimating(false);
-        setOtpAnimationSuccess(null);
-        setLoading(false);
-      }, 1000);
-    }
+    }, forcedVerifyingDisplayDuration);
+  };
+  
+  const handleRetryOtp = () => {
+    setVerificationStatus(null);
+    setOtp('');
+    setOtpError(null);
+    setError(null);
+    setLoading(false);
   };
 
   const handleBackToEmail = () => {
@@ -203,7 +184,7 @@ export default function OtpAuthFlow({
       setNameError(null);
       setEmailError(null);
       setOtpError(null);
-      setSuccessMessage(null);
+      setVerificationStatus(null);
       setIsAnimatingOut(false);
     }, 300);
   }
@@ -259,7 +240,6 @@ export default function OtpAuthFlow({
             
             <button type="submit" className="hidden" disabled={loading || !fieldsForOtpValid || isEmailButtonAnimating}></button>
 
-            {/* Green Fill Animation Button - Animation now based on isEmailButtonAnimating state */} 
             {fieldsForOtpValid && (
               <div
                 className={`w-full h-12 mt-3 rounded-lg bg-gray-100 transition-shadow duration-300 group relative overflow-hidden border border-gray-300 ${
@@ -272,14 +252,11 @@ export default function OtpAuthFlow({
                 aria-label="Send Verification Code"
                 aria-disabled={isEmailButtonAnimating || loading}
               >
-                {/* Green Fill Layer - Animates based on isEmailButtonAnimating */}
                 <div 
                   className={`absolute top-0 left-0 h-full bg-green-500 transition-all duration-1000 ease-in-out ${
                     isEmailButtonAnimating ? 'w-full' : 'w-0'
                   }`}
                 />
-                
-                {/* Text - Centered, changes color based on isEmailButtonAnimating */}
                 <div className="w-full h-full flex items-center justify-center relative z-10">
                   <span 
                     className={`text-sm font-medium transition-colors duration-200 ${
@@ -289,8 +266,6 @@ export default function OtpAuthFlow({
                     Send Verification Code
                   </span>
                 </div>
-
-                {/* Confirmation Icon - Appears based on isEmailButtonAnimating */}
                 <div 
                   className={`absolute right-3 top-1/2 -translate-y-1/2 transform transition-opacity duration-300 ease-in-out ${
                     isEmailButtonAnimating ? 'opacity-100 delay-[900ms]' : 'opacity-0'
@@ -303,7 +278,7 @@ export default function OtpAuthFlow({
           </form>
         )}
 
-        {currentStep === 'otp' && (
+        {currentStep === 'otp' && !verificationStatus && (
           <form onSubmit={handleVerifyOtp} className="space-y-5">
             <div className="text-center mb-4">
               <p className="text-gray-700 text-lg mb-1">
@@ -336,56 +311,17 @@ export default function OtpAuthFlow({
               error={otpError || undefined}
               showArrow={false}
               disabled={loading}
-              isLoading={loading && !isOtpButtonAnimating}
+              isLoading={false}
             />
             
-            {/* New Animated OTP Verification Button */}
             {otp.length === 6 && (
-              <div
-                className={`w-full h-12 mt-3 rounded-lg transition-shadow duration-300 group relative overflow-hidden border ${
-                  !isOtpButtonAnimating && !loading ? 'cursor-pointer hover:shadow-md bg-gray-100 border-gray-300' : 'cursor-default bg-gray-50 border-gray-200'
-                }`}
-                onClick={handleVerifyOtp}
-                role="button"
-                tabIndex={!isOtpButtonAnimating && !loading ? 0 : -1}
-                onKeyPress={(e) => { if (!isOtpButtonAnimating && !loading && (e.key === 'Enter' || e.key === ' ')) handleVerifyOtp(); }}
-                aria-label="Verify & Continue"
-                aria-disabled={isOtpButtonAnimating || loading || otp.length !== 6}
+              <Button 
+                type="submit" 
+                className="w-full h-12 mt-3"
+                disabled={loading || !!verificationStatus}
               >
-                {/* Fill Layer - Animates based on isOtpButtonAnimating and otpAnimationSuccess */}
-                <div
-                  className={`absolute top-0 left-0 h-full transition-all duration-1000 ease-in-out ${
-                    isOtpButtonAnimating ? 'w-full' : 'w-0'
-                  } ${
-                    otpAnimationSuccess === true ? 'bg-green-500' : otpAnimationSuccess === false ? 'bg-red-500' : 'bg-transparent'
-                  }`}
-                />
-                
-                {/* Text - Centered, changes color based on animation state */}
-                <div className="w-full h-full flex items-center justify-center relative z-10">
-                  <span
-                    className={`text-sm font-medium transition-colors duration-200 ${
-                      isOtpButtonAnimating ? 'text-white delay-300' : 'text-blue-600'
-                    }`}
-                  >
-                    Verify & Continue
-                  </span>
-                </div>
-
-                {/* Confirmation/Error Icon - Appears based on animation state and success/failure */}
-                <div
-                  className={`absolute right-3 top-1/2 -translate-y-1/2 transform transition-opacity duration-300 ease-in-out ${
-                    isOtpButtonAnimating ? 'opacity-100 delay-[900ms]' : 'opacity-0'
-                  }`}
-                >
-                   {otpAnimationSuccess === true && <FaCheckCircle size={22} className="text-white" />}
-                   {otpAnimationSuccess === false && <FaTimesCircle size={22} className="text-white" />}
-                </div>
-              </div>
-            )}
-            
-            {successMessage && !error && !otpError && (
-              <p className="text-sm text-green-600 text-center font-medium mt-2">{successMessage}</p>
+                Verify & Continue
+              </Button>
             )}
             
             <div className="text-center">
@@ -393,29 +329,51 @@ export default function OtpAuthFlow({
                 type="button"
                 onClick={handleBackToEmail}
                 className="text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium"
-                disabled={loading}
+                disabled={loading || !!verificationStatus}
               >
                 Change details or resend code
               </button>
             </div>
           </form>
         )}
+
+        {currentStep === 'otp' && verificationStatus && (
+          <div className="w-full p-6 mt-4 text-center bg-white rounded-lg shadow-xl border border-gray-200 animate-fadeIn">
+            {verificationStatus === 'verifying' && (
+              <>
+                <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-gray-300 border-t-blue-600 mb-4"></div>
+                <p className="text-lg font-semibold text-gray-700">Verifying OTP</p>
+                <p className="text-sm text-gray-500">Please wait, we're checking your code...</p>
+              </>
+            )}
+            {verificationStatus === 'success' && (
+              <>
+                <FaCheckCircle size={40} className="text-green-500 mx-auto mb-3 animate-scaleUp" />
+                <p className="text-lg font-semibold text-green-600">Verification Successful!</p>
+                <p className="text-sm text-gray-500">Taking you to your destination...</p>
+              </>
+            )}
+            {verificationStatus === 'error' && (
+              <>
+                <FaTimesCircle size={40} className="text-red-500 mx-auto mb-3 animate-scaleUp" />
+                <p className="text-lg font-semibold text-red-600">Verification Failed</p>
+                <p className="text-sm text-gray-500 mb-4 whitespace-pre-wrap">
+                  {otpError || error || 'An unknown error occurred.'}
+                </p>
+                <Button onClick={handleRetryOtp} className="w-full h-11">
+                  Re-enter OTP
+                </Button>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
-      {error && !nameError && !emailError && !otpError && (
+      {error && !nameError && !emailError && !otpError && !verificationStatus && (
         <div className="mt-3 bg-red-50 text-red-700 p-3 rounded-md text-sm font-medium border border-red-200">
           {error}
         </div>
       )}
-      
-      {loading && currentStep !== 'email' && !isOtpButtonAnimating && (
-        <div className="text-center py-4">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-200 border-t-blue-600"></div>
-          <p className="text-sm text-gray-600 mt-2">
-            {'Verifying code...'}
-          </p>
-        </div>
-      )}
     </div>
   );
-} 
+}

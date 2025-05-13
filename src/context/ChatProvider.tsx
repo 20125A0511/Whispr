@@ -7,6 +7,7 @@ interface Message {
   id: number;
   text: string;
   sender: 'user' | 'other';
+  senderName?: string;
   timestamp: Date;
 }
 
@@ -15,7 +16,7 @@ interface ChatContextType {
   chatId: string;
   lastActivity: Date;
   isTemporary: boolean;
-  addMessage: (text: string, sender: 'user' | 'other') => void;
+  addMessage: (text: string, sender: 'user' | 'other', senderName?: string) => void;
   clearChat: () => void;
   startNewChat: () => void;
   joinChat: (id: string) => void;
@@ -40,18 +41,21 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         id: 1, 
         text: 'Welcome to your temporary chat!', 
         sender: 'other',
+        senderName: 'System',
         timestamp: new Date()
       },
       { 
         id: 2, 
         text: 'Share your unique link or QR code to invite others.', 
         sender: 'other',
+        senderName: 'System',
         timestamp: new Date()
       },
       { 
         id: 3, 
         text: 'Remember: This chat will be deleted when the session ends.', 
         sender: 'other',
+        senderName: 'System',
         timestamp: new Date()
       },
     ]);
@@ -81,11 +85,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isTemporary]);
 
-  const addMessage = (text: string, sender: 'user' | 'other') => {
+  const addMessage = (text: string, sender: 'user' | 'other', senderName?: string) => {
     const newMessage = {
       id: messages.length + 1,
       text,
       sender,
+      senderName,
       timestamp: new Date()
     };
     
@@ -109,7 +114,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     clearChat();
     
     // Add a welcome message for the joined chat
-    addMessage(`You've joined a temporary chat session. This conversation will be deleted when the session ends.`, 'other');
+    addMessage(`You've joined a temporary chat session. This conversation will be deleted when the session ends.`, 'other', 'System');
   };
 
   return (
