@@ -69,7 +69,7 @@ export default function Dashboard() {
       
       try {
         // Call our API endpoint to send the email invite
-        const response = await fetch('/api/send-invite', {
+        const response = await fetch('/api/send-invite-email', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

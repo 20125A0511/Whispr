@@ -1,7 +1,3 @@
-// *** DEPRECATED: This file is no longer used due to Resend conflicts. ***
-// *** Please use src/app/api/send-invite-email/route.ts instead. ***
-// *** This file is kept for reference only and will be removed in a future update. ***
-
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import { createClient } from '@supabase/supabase-js';
@@ -32,19 +28,11 @@ const nodemailerFromEmail = process.env.NODEMAILER_FROM_EMAIL; // "From" email a
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
 
-let transporter: nodemailer.Transporter | null = null;
-
-// Basic check for essential configuration
-if (!siteUrl) {
-  console.error("Error: NEXT_PUBLIC_SITE_URL environment variable is not set.");
-}
-
 // Configure Nodemailer transporter
-// We'll try to create a test account if no explicit SMTP config is provided
-async function initializeTransporter() {
+const getTransporter = async () => {
   if (nodemailerHost && nodemailerUser && nodemailerPass && nodemailerFromEmail) {
     console.log("Using provided SMTP configuration for Nodemailer.");
-    transporter = nodemailer.createTransport({
+    return nodemailer.createTransport({
       host: nodemailerHost,
       port: nodemailerPort,
       secure: nodemailerSecure,
@@ -54,18 +42,13 @@ async function initializeTransporter() {
       },
     });
   } else {
-    console.warn("Warning: SMTP environment variables (NODEMAILER_HOST, NODEMAILER_USER, NODEMAILER_PASS, NODEMAILER_FROM_EMAIL) are not fully set.");
+    console.warn("Warning: SMTP environment variables are not fully set.");
     console.log("Attempting to use Ethereal for email sending (for development/testing).");
     try {
       const testAccount = await nodemailer.createTestAccount();
-      console.log('Ethereal test account created successfully:');
-      console.log('User:', testAccount.user);
-      console.log('Pass:', testAccount.pass);
-      console.log('Host:', testAccount.smtp.host);
-      console.log('Port:', testAccount.smtp.port);
-      console.log('Secure:', testAccount.smtp.secure);
-
-      transporter = nodemailer.createTransport({
+      console.log('Ethereal test account created successfully:', testAccount.user);
+      
+      return nodemailer.createTransport({
         host: testAccount.smtp.host,
         port: testAccount.smtp.port,
         secure: testAccount.smtp.secure,
@@ -74,35 +57,37 @@ async function initializeTransporter() {
           pass: testAccount.pass,
         },
       });
-      // If using Ethereal, the from email should ideally be the testAccount.user,
-      // but we will use NODEMAILER_FROM_EMAIL if set, or fallback to testAccount.user
-      if (!nodemailerFromEmail) {
-        console.warn(`Warning: NODEMAILER_FROM_EMAIL is not set. Using Ethereal user ${testAccount.user} as sender.`);
-      }
     } catch (error) {
       console.error("Error creating Ethereal test account:", error);
-      console.error("Email sending will be disabled as no valid transporter could be configured.");
+      throw new Error("Email sending will be disabled as no valid transporter could be configured.");
     }
   }
-}
-
-initializeTransporter(); // Initialize the transporter on module load
+};
 
 export async function POST(request: Request) {
-  if (!transporter || !siteUrl || (!nodemailerFromEmail && !(transporter.options as any)?.auth?.user)) {
-    let errorMessage = 'Server configuration error. Email sending is disabled.';
-    if (!transporter) errorMessage = 'Email transporter is not configured.';
-    else if (!siteUrl) errorMessage = 'NEXT_PUBLIC_SITE_URL is not configured.';
-    else if (!nodemailerFromEmail && !(transporter.options as any)?.auth?.user) errorMessage = 'Sender email (NODEMAILER_FROM_EMAIL or Ethereal user) is not configured.';
-    
-    console.error("Configuration error preventing email sending:", errorMessage);
-    return NextResponse.json(
-      { success: false, error: errorMessage },
-      { status: 500 }
-    );
-  }
-
   try {
+    // Verify environment variables are set
+    if (!siteUrl) {
+      console.error("Error: NEXT_PUBLIC_SITE_URL environment variable is not set.");
+      return NextResponse.json(
+        { success: false, error: "Site URL is not configured." },
+        { status: 500 }
+      );
+    }
+
+    // Get transporter
+    let transporter;
+    try {
+      transporter = await getTransporter();
+    } catch (error) {
+      console.error("Failed to initialize email transporter:", error);
+      return NextResponse.json(
+        { success: false, error: "Email transporter configuration failed." },
+        { status: 500 }
+      );
+    }
+
+    // Parse request body
     const { guestEmail, chatId, hostName } = await request.json();
 
     if (!guestEmail || !chatId || !hostName) {
@@ -112,7 +97,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // --- Create chat session in Supabase ---
+    // Create chat session in Supabase
     const supabase = getSupabaseServiceRoleClient();
     const { error: supabaseError } = await supabase
       .from('chat_sessions')
@@ -129,8 +114,8 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
-    // --- End Supabase chat session creation ---
 
+    // Prepare and send email
     const chatLink = `${siteUrl}/join/${chatId}`;
     const invitingUser = hostName || 'Someone';
 
@@ -147,10 +132,11 @@ export async function POST(request: Request) {
       </div>
     `;
 
-    // Determine the 'from' email address
-    // Prioritize NODEMAILER_FROM_EMAIL, then Ethereal user if available.
-    const fromEmail = nodemailerFromEmail || (transporter.options as any)?.auth?.user;
-
+    // Determine from email
+    const fromEmail = nodemailerFromEmail || 
+      // Access auth properties using typecasting since TypeScript doesn't know the exact structure
+      (transporter.options as any)?.auth?.user;
+    
     if (!fromEmail) {
       console.error('Error: Sender email address could not be determined.');
       return NextResponse.json(
@@ -161,17 +147,17 @@ export async function POST(request: Request) {
     
     const mailOptions = {
       from: `"${invitingUser} (via texttemp)" <${fromEmail}>`,
-      to: guestEmail, // Nodemailer accepts a string or an array for 'to'
+      to: guestEmail,
       subject: `${invitingUser} has invited you to a chat!`,
       html: emailHtml,
     };
 
     const info = await transporter.sendMail(mailOptions);
-
-    console.log('Nodemailer success response: Message sent: %s', info.messageId);
-    // For Ethereal, log the preview URL
+    console.log('Email sent successfully:', info.messageId);
+    
+    // Log Ethereal preview URL if using Ethereal
     if ((transporter.options as any)?.host?.includes('ethereal.email')) {
-      console.log('Preview URL: %s', nodemailer.getTestMessageUrl(info));
+      console.log('Preview URL:', nodemailer.getTestMessageUrl(info));
     }
 
     return NextResponse.json(
@@ -179,8 +165,8 @@ export async function POST(request: Request) {
     );
 
   } catch (error) {
-    console.error('Failed to send email with Nodemailer:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unexpected server error occurred while sending email.';
+    console.error('Failed to send email:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected server error occurred.';
     return NextResponse.json(
       { success: false, error: 'Failed to send invitation email.', details: errorMessage },
       { status: 500 }
