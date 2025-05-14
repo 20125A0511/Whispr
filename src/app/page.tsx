@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthProvider';
 import { Button } from '@/components/ui/Button';
 import OtpAuthFlow from '@/components/auth/OtpAuthFlow';
 import CueCard from '@/components/ui/CueCard';
+import Logo from '@/components/ui/Logo';
 
 // Import icons from react-icons
 import { FaLock, FaRocketchat } from 'react-icons/fa';
@@ -66,6 +67,9 @@ export default function Home() {
         <div className="absolute inset-0 z-10 bg-black opacity-60"></div>
         <main className="relative z-20 flex flex-col items-center justify-center text-center p-4">
           <div className="bg-white/10 backdrop-blur-lg p-8 sm:p-12 rounded-2xl shadow-xl max-w-2xl">
+            <div className="flex justify-center mb-8">
+              <Logo width={180} height={60} />
+            </div>
             <h1 className="text-5xl sm:text-6xl font-bold text-white mb-6">
               Welcome to Whispr
             </h1>

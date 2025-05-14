@@ -4,6 +4,7 @@ import { FloatingLabelInput } from '@/components/ui/FloatingLabelInput';
 import { useAuth } from '@/context/AuthProvider';
 import { IoClose } from 'react-icons/io5';
 import { FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
+import Logo from '@/components/ui/Logo';
 
 interface OtpAuthFlowProps {
   onSuccess?: () => void; // Optional callback on successful verification
@@ -201,7 +202,11 @@ export default function OtpAuthFlow({
           </button>
         </div>
       )}
-    
+      
+      <div className="flex justify-center mb-4">
+        <Logo width={150} height={50} />
+      </div>
+
       <div className="mb-6 text-center">
         <h2 className="text-3xl font-semibold text-gray-800 tracking-tight">
           {currentStep === 'email' ? (showNameField ? 'Sign Up / Sign In' : 'Sign In') : 'Verification'}

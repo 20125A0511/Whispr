@@ -68,6 +68,7 @@ cd whispr
     *   Make sure the email body contains `{{ .Token }}` where you want the OTP to appear, **not** `{{ .ConfirmationURL }}`.
     *   Example: `Your verification code is: {{ .Token }}`
     *   (Optional) Configure OTP expiry in Supabase Dashboard -> `Authentication` -> `Settings` -> `OTP Expiry`. We discussed setting this to 100 seconds.
+    *   **Custom SMTP:** The project is configured to use custom SMTP for sending authentication emails. Make sure your Supabase project has custom SMTP enabled and configured in the Authentication settings.
 
 5.  **Run the development server:**
     ```bash
@@ -103,7 +104,7 @@ src/
 Contributions are welcome! If you have suggestions or want to improve the app, feel free to:
 1.  Fork the Project
 2.  Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'')
+3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
 4.  Push to the Branch (`git push origin feature/AmazingFeature`)
 5.  Open a Pull Request
 

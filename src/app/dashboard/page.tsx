@@ -8,6 +8,7 @@ import ChatInterface from '@/components/chat/ChatInterface';
 import { FiLogOut, FiMessageSquare, FiPlus, FiUsers, FiMail, FiUser } from 'react-icons/fi';
 import { Input } from '@/components/ui/Input';
 import { FaCheckCircle } from 'react-icons/fa';
+import Logo from '@/components/ui/Logo';
 
 // Define the steps in our chat creation flow
 type ChatCreationStep = 'initial' | 'hostName' | 'inviteGuest' | 'chatActive';
@@ -358,10 +359,7 @@ export default function Dashboard() {
     <div className="flex flex-col h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center shadow-sm">
-        <h1 className="text-xl font-semibold tracking-tight text-gray-900">
-          <span className="text-indigo-600">Whi</span>
-          <span className="text-gray-800">spr</span>
-        </h1>
+        <Logo width={120} height={40} />
         <div className="flex items-center gap-5">
           <span className="text-sm font-medium text-gray-600">{user.email}</span>
           <Button 

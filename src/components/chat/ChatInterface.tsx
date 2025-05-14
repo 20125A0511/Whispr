@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/Input';
 import ShareChat from './ShareChat';
 import { FiShare2, FiSend, FiUser, FiUsers, FiInfo, FiRefreshCw, FiAlertTriangle } from 'react-icons/fi';
 import { useAuth } from '@/context/AuthProvider';
+import Logo from '@/components/ui/Logo';
 
 interface ChatInterfaceProps {
   chatId: string;
@@ -130,14 +131,17 @@ export default function ChatInterface({
       {/* <DebugInfo /> */}
       <div className="bg-white border-b border-gray-200 p-4 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-3">
-          <FiUsers className="w-5 h-5 text-indigo-600" />
-          <div>
-            <h2 className="font-medium text-gray-800 leading-tight">
-              Chat with {otherParticipantName === 'Guest' && !initialGuestName ? 'your Guest' : otherParticipantName}
-            </h2>
-            <p className="text-xs text-gray-500">
-              You are: <span className="font-semibold">{currentUserName}</span> {isHost ? '(Host)' : '(Guest)'}
-            </p>
+          <Logo width={100} height={32} className="mr-2" />
+          <div className="flex items-center gap-2">
+            <FiUsers className="w-5 h-5 text-indigo-600" />
+            <div>
+              <h2 className="font-medium text-gray-800 leading-tight">
+                Chat with {otherParticipantName === 'Guest' && !initialGuestName ? 'your Guest' : otherParticipantName}
+              </h2>
+              <p className="text-xs text-gray-500">
+                You are: <span className="font-semibold">{currentUserName}</span> {isHost ? '(Host)' : '(Guest)'}
+              </p>
+            </div>
           </div>
         </div>
         {chatId && isHost && isChatActive && ( // Only show buttons if user isHost and chat is active

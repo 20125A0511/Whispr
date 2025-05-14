@@ -69,7 +69,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       console.log('[ChatProvider] Received non-insert event or empty payload:', payload.eventType);
     }
   }, []);
-
+  
   useEffect(() => {
     const cleanupChannel = async () => {
       if (channelRef.current) {
