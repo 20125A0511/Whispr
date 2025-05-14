@@ -9,7 +9,7 @@ import { useChat } from '@/context/ChatProvider'; // To potentially set guest na
 export default function JoinChatPage() {
   const params = useParams();
   const router = useRouter();
-  const { joinChat } = useChat(); // We might use this or pass info differently
+  const { joinChatSession } = useChat(); // Changed from joinChat to joinChatSession to match ChatContextType
 
   const chatId = params.chatId as string;
   const [guestName, setGuestName] = useState('');
@@ -55,8 +55,8 @@ export default function JoinChatPage() {
 
       setSuccessMessage('Successfully joined! Redirecting to chat...');
       
-      // Option 1: Call joinChat from ChatProvider if it can handle guestName
-      // joinChat(data.chatId, data.guestName, data.hostName); // This would require ChatProvider modification
+      // Option 1: Call joinChatSession from ChatProvider if it can handle guestName
+      // joinChatSession(data.chatId, data.guestName, data.hostName); // Currently commented out
 
       // Option 2: Navigate to the main chat page with guest info in query params or state management
       // For simplicity, let's use query params for now. This means ChatInterface/ChatPage needs to read them.
