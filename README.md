@@ -2,14 +2,14 @@
 
 [![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/) [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/) [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/) [![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.io/)
 
-**texttemp** is a sleek, iMessage-inspired web application for seamless and secure messaging. Built with a modern tech stack, it features passwordless authentication using One-Time Passwords (OTP) via email, ensuring a smooth and safe user experience.
+**texttemp** is a sleek, modern web application for seamless and secure messaging. Built with a cutting-edge tech stack, it features passwordless authentication using One-Time Passwords (OTP) via email, ensuring a smooth and safe user experience.
 
 <!-- Optional: Add a GIF or screenshot here -->
 <!-- e.g., <p align="center"><img src="link_to_your_screenshot.png" width="700"></p> -->
 
 ## ✨ Key Features
 
-*   **💬 iMessage-like Interface:** Clean, intuitive, and familiar chat UI.
+*   **💬 Modern Messaging Interface:** Clean, intuitive, and user-friendly chat UI.
 *   **🔐 Passwordless Authentication:** Secure sign-up and login using email OTPs.
 *   **🚀 Modern Tech Stack:** Leveraging Next.js for server-side rendering and static site generation, TypeScript for type safety, and Tailwind CSS for utility-first styling.
 *   **☁️ Supabase Backend:** Utilizing Supabase for database, authentication, and real-time capabilities.
