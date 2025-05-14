@@ -82,36 +82,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Generate and send OTP for user
   const sendOtp = async (email: string, name?: string) => {
     try {
-      // Generate and send OTP with user creation set to FALSE initially
-      // We will only create the user after successful OTP verification
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          shouldCreateUser: false, // Don't create user at this stage
-          // Store the user's name for later use (only if not an existing user)
+          shouldCreateUser: true, // allow new users to sign up
           data: name ? { name } : undefined,
           emailRedirectTo: window.location.origin,
         },
       });
       
       if (error) {
+        console.error('Supabase signInWithOtp error in sendOtp:', error.message, error);
         return { error };
       }
       
-      // Store the registration attempt in localStorage
       const registration: PendingRegistration = {
         email,
         name,
         timestamp: Date.now(),
       };
       
-      // Update state and localStorage
       setPendingRegistration(registration);
       localStorage.setItem(PENDING_REGISTRATION_KEY, JSON.stringify(registration));
       
       return { error: null };
     } catch (error) {
-      console.error('Error in sendOtp:', error);
+      console.error('Unexpected error in sendOtp catch block:', error);
       return { error: { message: String(error) } as AuthError };
     }
   };
@@ -119,11 +115,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Verify OTP and only create the user account after successful verification
   const verifyOtp = async (email: string, otp: string, name?: string) => {
     try {
-      // Check if we have a pending registration for this email
-      const isNewRegistration = pendingRegistration?.email?.toLowerCase() === email.toLowerCase();
+      const isPendingRegistration = pendingRegistration?.email?.toLowerCase() === email.toLowerCase();
       const registrationName = name || pendingRegistration?.name;
       
-      // Verify the OTP
       const { data, error: verifyError } = await supabase.auth.verifyOtp({
         email,
         token: otp,
@@ -132,63 +126,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (verifyError) {
         if (verifyError.message === "Token has expired or is invalid") {
-          console.error("Invalid OTP entered:", verifyError.message);
           return { 
             error: { 
               message: "The verification code is incorrect or has expired. Please try again or request a new code." 
             } as AuthError 
           };
         }
-        
-        console.error("OTP verification error:", verifyError);
         return { error: verifyError };
       }
       
-      if (!data.session) {
-        console.error("No session established after OTP verification");
+      if (!data.session || !data.user) {
         return { error: { message: "Authentication failed: No session established" } as AuthError };
       }
       
-      // If this is a new user, we need to manually create their account now
-      if (isNewRegistration) {
-        const { error: signUpError } = await supabase.auth.signUp({
-          email,
-          password: generateSecurePassword(), // Generate a secure random password
-          options: {
-            data: { name: registrationName },
-            // This ensures the session from verifyOtp is used and not a new one
-            // However, this might require re-auth after this signup.
-            // Test carefully. Supabase might have issues with verifyOtp then immediate signUp.
+      // User is now verified. Mark user as verified in metadata
+      if (data.user) {
+        const currentMeta = data.user.user_metadata || {};
+        if (!currentMeta.is_verified) {
+          const { error: updateVerifiedError } = await supabase.auth.updateUser({
+            data: { ...currentMeta, is_verified: true, name: registrationName }
+          });
+          if (updateVerifiedError) {
+            console.error("Error updating user metadata to set is_verified:", updateVerifiedError);
           }
-        });
-        
-        if (signUpError) {
-          console.error("Error creating user account:", signUpError);
-          // If user already exists, this is not a critical failure, as they might have signed up before
-          if (!signUpError.message.includes("User already registered")) {
-            return { error: signUpError };
-          }
-        }
-      } 
-      // If the user exists and we need to update their metadata
-      else if (registrationName && data.user) {
-        const { error: updateError } = await supabase.auth.updateUser({
-          data: { name: registrationName }
-        });
-        
-        if (updateError) {
-          console.error("Error updating user metadata:", updateError);
-          // Non-fatal error, continue with authentication
         }
       }
       
-      // Clear the pending registration
-      if (isNewRegistration) {
+      if (isPendingRegistration) {
         setPendingRegistration(null);
         localStorage.removeItem(PENDING_REGISTRATION_KEY);
       }
       
-      // Ensure the session is properly set in state
       setSession(data.session);
       setUser(data.user);
       
