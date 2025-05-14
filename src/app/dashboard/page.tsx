@@ -326,7 +326,7 @@ export default function Dashboard() {
             <div className="bg-indigo-50 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-6">
               <FiMessageSquare className="w-8 h-8 text-indigo-600" />
             </div>
-            <h2 className="text-2xl font-medium text-gray-800 mb-2">Welcome to texttemp</h2>
+            <h2 className="text-2xl font-medium text-gray-800 mb-2">Welcome to Whispr</h2>
             <p className="text-gray-600 mb-8">
               Create a new chat session to start a temporary conversation with others. Your conversations will be deleted when the session ends.
             </p>
@@ -359,8 +359,8 @@ export default function Dashboard() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center shadow-sm">
         <h1 className="text-xl font-semibold tracking-tight text-gray-900">
-          <span className="text-indigo-600">text</span>
-          <span className="text-gray-800">temp</span>
+          <span className="text-indigo-600">Whi</span>
+          <span className="text-gray-800">spr</span>
         </h1>
         <div className="flex items-center gap-5">
           <span className="text-sm font-medium text-gray-600">{user.email}</span>

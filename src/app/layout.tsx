@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "texttemp - Temporary Chat App",
+  title: "Whispr - Temporary Chat App",
   description: "A modern temporary chat application where conversations are deleted when the session ends",
 };
 

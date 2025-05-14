@@ -160,7 +160,7 @@ export async function POST(request: Request) {
     }
     
     const mailOptions = {
-      from: `"${invitingUser} (via texttemp)" <${fromEmail}>`,
+      from: `"${invitingUser} (via Whispr)" <${fromEmail}>`,
       to: guestEmail, // Nodemailer accepts a string or an array for 'to'
       subject: `${invitingUser} has invited you to a chat!`,
       html: emailHtml,

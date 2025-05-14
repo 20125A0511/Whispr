@@ -67,7 +67,7 @@ export default function Home() {
         <main className="relative z-20 flex flex-col items-center justify-center text-center p-4">
           <div className="bg-white/10 backdrop-blur-lg p-8 sm:p-12 rounded-2xl shadow-xl max-w-2xl">
             <h1 className="text-5xl sm:text-6xl font-bold text-white mb-6">
-              Welcome to texttemp
+              Welcome to Whispr
             </h1>
             <p className="text-xl sm:text-2xl text-gray-200 mb-10">
               A new way to connect and chat, seamlessly and securely.
@@ -87,7 +87,7 @@ export default function Home() {
       <section className="relative z-20 w-full py-16 sm:py-24 bg-amber-100/[0.80] backdrop-blur-md">
         <div className="container mx-auto px-4">
           <h2 className="text-4xl font-bold text-amber-900 text-center mb-12 sm:mb-16">
-            Why texttemp?
+            Why Whispr?
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
             <CueCard 
@@ -148,7 +148,7 @@ export default function Home() {
       )}
 
       <footer className="relative z-20 py-8 bg-amber-100/[0.80] text-center text-amber-700 text-sm w-full">
-        © {new Date().getFullYear()} texttemp. All rights reserved.
+        © {new Date().getFullYear()} Whispr. All rights reserved.
       </footer>
     </div>
   );

@@ -1,8 +1,8 @@
-# <img src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Food/Bubble%20Tea.png" alt="Bubble Tea" width="40" height="40" /> texttemp - Your Modern Messaging Hub
+# <img src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Food/Bubble%20Tea.png" alt="Bubble Tea" width="40" height="40" /> Whispr - Your Modern Messaging Hub
 
 [![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/) [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/) [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/) [![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.io/)
 
-**texttemp** is a sleek, modern web application for seamless and secure messaging. Built with a cutting-edge tech stack, it features passwordless authentication using One-Time Passwords (OTP) via email, ensuring a smooth and safe user experience.
+**Whispr** is a sleek, modern web application for seamless and secure messaging. Built with a cutting-edge tech stack, it features passwordless authentication using One-Time Passwords (OTP) via email, ensuring a smooth and safe user experience.
 
 <!-- Optional: Add a GIF or screenshot here -->
 <!-- e.g., <p align="center"><img src="link_to_your_screenshot.png" width="700"></p> -->
@@ -40,8 +40,8 @@ Follow these instructions to get a copy of the project up and running on your lo
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/20125A0511/texttemp.git
-    cd texttemp
+    git clone https://github.com/20125A0511/whispr.git
+cd whispr
     ```
 
 2.  **Install dependencies:**
@@ -113,4 +113,4 @@ This project is licensed under the MIT License - see the `LICENSE.md` file for d
 
 ---
 
-<p align="center">Happy Texting with texttemp! ✨</p>
+<p align="center">Happy Texting with Whispr! ✨</p>
