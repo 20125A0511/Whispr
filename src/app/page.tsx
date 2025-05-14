@@ -99,7 +99,7 @@ export default function Home() {
             <CueCard 
               icon={<FaRocketchat className="inline-block text-violet-500 dark:text-violet-400" />}
               title="Seamless Chat"
-              description="Experience a clean, iMessage-like interface designed for intuitive and enjoyable conversations. Focus on what matters: the chat."
+              description="Experience a clean, modern interface designed for intuitive and enjoyable conversations. Focus on what matters: the chat."
               animationDelay="delay-200ms"
             />
             <CueCard 
