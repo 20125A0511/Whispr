@@ -126,6 +126,11 @@ export default function ChatInterface({
     // ) : null
   );
 
+  // Add a function to check if the error is related to Realtime
+  const isRealtimeError = (error: string | null) => {
+    return error?.includes('Realtime connection error') || false;
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* <DebugInfo /> */}
@@ -205,9 +210,37 @@ export default function ChatInterface({
             <div className="text-center py-10"><p>Loading messages...</p></div>
           )}
           {!isLoadingMessages && chatError && (
-            <div className="text-center py-10 bg-red-50 p-4 rounded-md relative">
-              <p>Error: {chatError}</p>
-              <Button onClick={handleDismissError} variant="outline" size="sm" className="mt-2">Dismiss</Button>
+            <div className="text-center py-6 bg-red-50 p-4 rounded-md relative">
+              <div className="mb-2">
+                {isRealtimeError(chatError) ? (
+                  <FiRefreshCw className="mx-auto h-8 w-8 text-red-500 mb-2" />
+                ) : (
+                  <FiAlertTriangle className="mx-auto h-8 w-8 text-red-500 mb-2" />
+                )}
+              </div>
+              <p className="text-red-700 font-medium">{chatError}</p>
+              
+              {isRealtimeError(chatError) && (
+                <div className="mt-4">
+                  <p className="text-sm text-red-600 mb-3">
+                    Supabase Realtime service is having trouble connecting. This is needed for receiving messages in real-time.
+                  </p>
+                  <Button 
+                    onClick={handleForceRefresh} 
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    size="sm"
+                  >
+                    <FiRefreshCw className="mr-2 h-4 w-4" /> 
+                    Retry Connection
+                  </Button>
+                </div>
+              )}
+              
+              {!isRealtimeError(chatError) && (
+                <Button onClick={handleDismissError} variant="outline" size="sm" className="mt-2">
+                  Dismiss
+                </Button>
+              )}
             </div>
           )}
           {!isLoadingMessages && !chatError && messages.length === 0 && (

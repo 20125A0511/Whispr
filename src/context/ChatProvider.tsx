@@ -70,6 +70,55 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
   }, []);
   
+  // Add retry mechanism for Realtime connections
+  const setupRealtimeConnection = useCallback((chatId: string, retryCount = 0) => {
+    console.log(`[ChatProvider] Setting up realtime connection for ${chatId}, attempt ${retryCount + 1}`);
+    
+    if (retryCount > 3) {
+      console.error(`[ChatProvider] Failed to connect after ${retryCount} attempts.`);
+      setChatError("Realtime connection error: Maximum retry attempts reached. Please refresh the page.");
+      return null;
+    }
+    
+    const channel = supabase
+      .channel(`realtime-chat-${chatId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'temporary_chat_messages', filter: `chat_id=eq.${chatId}` },
+        handleNewMessage
+      )
+      .subscribe((status, err) => {
+        console.log(`[ChatProvider] Subscription status for ${chatId}: ${status}`, err);
+        if (status === 'SUBSCRIBED') {
+          console.log(`[ChatProvider] Successfully subscribed to ${chatId}.`);
+          setChatError(null); // Clear any previous subscription errors
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error(`[ChatProvider] Subscription error for ${chatId}:`, err);
+          
+          // Handle specific Realtime errors
+          if (err?.message?.includes('unable to connect to the project database')) {
+            // This is a known issue, try to reconnect
+            console.log(`[ChatProvider] Attempting to reconnect (attempt ${retryCount + 1})`);
+            
+            // Close the current channel
+            supabase.removeChannel(channel);
+            
+            // Wait a bit before retrying
+            setTimeout(() => {
+              const newChannel = setupRealtimeConnection(chatId, retryCount + 1);
+              if (newChannel) channelRef.current = newChannel;
+            }, 2000 * (retryCount + 1)); // Exponential backoff
+          } else if (err && err.message && !err.message.includes('already joined')) {
+            setChatError(`Realtime connection error: ${err.message}. Try refreshing.`);
+          }
+        } else if (status === 'CLOSED') {
+          console.log(`[ChatProvider] Subscription closed for ${chatId}.`);
+        }
+      });
+      
+    return channel;
+  }, [handleNewMessage]);
+
   useEffect(() => {
     const cleanupChannel = async () => {
       if (channelRef.current) {
@@ -79,7 +128,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           console.log(`[ChatProvider] Unsubscribed from ${channelRef.current.topic}, status: ${status}`);
         } catch (error) {
           console.error(`[ChatProvider] Error unsubscribing from ${channelRef.current.topic}:`, error);
-        }
+      }
         channelRef.current = null;
       }
       
@@ -103,7 +152,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
 
     console.log(`[ChatProvider] Active session changed to: ${activeChatSessionId}. Setting up new channel.`);
-    
+
     // Cleanup previous channel before setting up a new one.
     // This is important if activeChatSessionId changes rapidly.
     cleanupChannel();
@@ -156,31 +205,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
     fetchInitialMessages();
 
-    // Subscribe to chat messages
+    // Replace the existing subscription code with this:
     console.log(`[ChatProvider] Subscribing to realtime for chat_id: ${activeChatSessionId}`);
-    const newChannel = supabase
-      .channel(`realtime-chat-${activeChatSessionId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'temporary_chat_messages', filter: `chat_id=eq.${activeChatSessionId}` },
-        handleNewMessage
-      )
-      .subscribe((status, err) => {
-        console.log(`[ChatProvider] Subscription status for ${activeChatSessionId}: ${status}`);
-        if (status === 'SUBSCRIBED') {
-          console.log(`[ChatProvider] Successfully subscribed to ${activeChatSessionId}.`);
-          setChatError(null); // Clear any previous subscription errors
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error(`[ChatProvider] Subscription error for ${activeChatSessionId}:`, err);
-          // Avoid setting error if it's a common "channel already joined" type of issue from quick refreshes
-          if (err && err.message && !err.message.includes('already joined')) {
-            setChatError(`Realtime connection error: ${err.message}. Try refreshing.`);
-          }
-        } else if (status === 'CLOSED') {
-          console.log(`[ChatProvider] Subscription closed for ${activeChatSessionId}.`);
-        }
-      });
-
+    const newChannel = setupRealtimeConnection(activeChatSessionId);
     channelRef.current = newChannel;
     
     // Also subscribe to chat_sessions table to detect when the session is ended
@@ -211,7 +238,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       console.log(`[ChatProvider] useEffect cleanup: Unsubscribing from ${activeChatSessionId}`);
       cleanupChannel();
     };
-  }, [activeChatSessionId, handleNewMessage]);
+  }, [activeChatSessionId, handleNewMessage, setupRealtimeConnection]);
 
   const addMessage = async (message_text: string, sender_name: string, user_id?: string | null) => {
     if (!activeChatSessionId) {
