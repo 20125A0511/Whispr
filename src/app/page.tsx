@@ -9,7 +9,7 @@ import CueCard from '@/components/ui/CueCard';
 
 // Import icons from react-icons
 import { FaLock, FaRocketchat } from 'react-icons/fa';
-import { FiSmartphone } from 'react-icons/fi';
+import { FiSmartphone, FiUsers, FiCoffee } from 'react-icons/fi';
 
 export default function Home() {
   const { user, isLoading } = useAuth();
@@ -92,21 +92,37 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
             <CueCard 
               icon={<FaLock className="inline-block text-sky-500 dark:text-sky-400" />}
-              title="Passwordless Security"
-              description="Enjoy robust security with our simple and secure OTP (One-Time Password) login system. No passwords to forget or compromise!"
+              title="Private Connections"
+              description="Create anonymous discussion spaces where sensitive topics can be freely discussed without leaving a permanent digital trace."
               animationDelay="delay-0ms"
             />
             <CueCard 
               icon={<FaRocketchat className="inline-block text-violet-500 dark:text-violet-400" />}
-              title="Seamless Chat"
-              description="Experience a clean, modern interface designed for intuitive and enjoyable conversations. Focus on what matters: the chat."
+              title="Surprise Planning"
+              description="Coordinate events, gifts, and special moments with friends without leaving evidence in regular messaging apps."
               animationDelay="delay-200ms"
             />
             <CueCard 
               icon={<FiSmartphone className="inline-block text-emerald-500 dark:text-emerald-400" />}
-              title="Modern & Fast"
-              description="Built with the latest web technologies for a responsive and snappy user experience across all your devices. Get started in seconds."
+              title="Instant Support"
+              description="Provide seamless customer support through temporary chat sessions, easily accessible via email invitation."
               animationDelay="delay-400ms"
+            />
+          </div>
+          
+          {/* Additional use cases row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 mt-8">
+            <CueCard 
+              icon={<FiUsers className="inline-block text-amber-500 dark:text-amber-400" />}
+              title="Speed Networking"
+              description="Connect professionals quickly through rotating chat rooms at virtual events, with easy email-based invitations."
+              animationDelay="delay-600ms"
+            />
+            <CueCard 
+              icon={<FiCoffee className="inline-block text-rose-500 dark:text-rose-400" />}
+              title="Personal Connections"
+              description="Have the courage to ask someone out with just their email - no awkward messages left in permanent inboxes if things don't work out."
+              animationDelay="delay-800ms"
             />
           </div>
         </div>
