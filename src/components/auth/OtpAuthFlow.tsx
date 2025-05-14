@@ -283,10 +283,10 @@ export default function OtpAuthFlow({
               <p className="text-gray-700 text-lg mb-1">
                 {showNameField && name ? (
                   <>
-                    Hi <span className="font-semibold">{name}</span>, we&apos;ve sent a 6-digit code to
+                    Hi <span className="font-semibold">{name}</span>, we've sent a 6-digit code to
                   </>
                 ) : (
-                  "We&apos;ve sent a 6-digit code to"
+                  "We've sent a 6-digit code to"
                 )}
                 <br className="sm:hidden" /> <span className="font-medium text-gray-800 block sm:inline">{email}</span>.
               </p>
@@ -342,7 +342,7 @@ export default function OtpAuthFlow({
               <>
                 <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-gray-300 border-t-blue-600 mb-4"></div>
                 <p className="text-lg font-semibold text-gray-700">Verifying OTP</p>
-                <p className="text-sm text-gray-500">Please wait, we&apos;re checking your code...</p>
+                <p className="text-sm text-gray-500">Please wait, we're checking your code...</p>
               </>
             )}
             {verificationStatus === 'success' && (

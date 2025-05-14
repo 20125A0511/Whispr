@@ -204,7 +204,7 @@ export default function Dashboard() {
             <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 animate-fadeIn">
               <h2 className="text-xl font-medium text-gray-800 mb-4">Invite Participants</h2>
               <p className="text-sm text-gray-600 mb-5">
-                Invite guests to join your chat. You&apos;ll be able to start chatting after inviting at least one person.
+                Invite guests to join your chat. You'll be able to start chatting after inviting at least one person.
               </p>
               
               <form onSubmit={handleInviteGuest} className="space-y-4 mb-6">
@@ -306,7 +306,19 @@ export default function Dashboard() {
         );
 
       case 'chatActive':
-        return <ChatInterface chatId={chatId} hostName={hostName} />;
+        if (!chatId || !hostName) {
+          // Fallback or error for missing critical info for host
+          console.error('[Dashboard] Missing chatId or hostName for chatActive step. Returning to initial.');
+          handleCancelChatCreation(); // Or some other error display
+          return <p>Error: Chat information is missing. Please try again.</p>;
+        }
+        return <ChatInterface 
+                  chatId={chatId} 
+                  currentUserName={hostName} // Pass hostName as currentUserName
+                  isHost={true}             // Explicitly set isHost to true
+                  initialHostName={hostName}  // Can also pass as initialHostName
+                  // initialGuestName can be omitted or fetched if available
+                />;
 
       default: // 'initial'
         return (
