@@ -21,10 +21,13 @@ interface ChatContextType {
   chatId: string | null; // Can be null initially
   isLoadingMessages: boolean;
   chatError: string | null;
+  isChatActive: boolean; // Whether the current chat session is active
+  isSessionEnded: boolean; // Whether the session has been ended by the host
   addMessage: (message_text: string, sender_name: string, user_id?: string | null) => Promise<void>;
   clearChat: () => void;
   // startNewChat: () => string; // Now primarily for host dashboard, returns new chatId
   joinChatSession: (chatSessionId: string) => void; // To explicitly join/load a session
+  endChatSession: (chatSessionId: string, userId?: string | null) => Promise<void>; // End a chat session (host only)
   activeChatSessionId: string | null; // Renamed from chatId for clarity
   clearChatError: () => void;
 }
@@ -36,8 +39,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [activeChatSessionId, setActiveChatSessionId] = useState<string | null>(null);
   const [isLoadingMessages, setIsLoadingMessages] = useState<boolean>(false);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [isChatActive, setIsChatActive] = useState<boolean>(true);
+  const [isSessionEnded, setIsSessionEnded] = useState<boolean>(false);
   
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const sessionChannelRef = useRef<RealtimeChannel | null>(null);
 
   const clearChatError = useCallback(() => {
     setChatError(null);
@@ -76,11 +82,22 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         }
         channelRef.current = null;
       }
+      
+      if (sessionChannelRef.current) {
+        try {
+          await supabase.removeChannel(sessionChannelRef.current);
+        } catch (error) {
+          console.error('[ChatProvider] Error unsubscribing from session channel:', error);
+        }
+        sessionChannelRef.current = null;
+      }
     };
 
     if (!activeChatSessionId) {
       console.log('[ChatProvider] No active chat session. Clearing messages and ensuring no channel.');
       setMessages([]);
+      setIsChatActive(true);
+      setIsSessionEnded(false);
       cleanupChannel();
       return;
     }
@@ -96,6 +113,22 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setChatError(null);
       console.log(`[ChatProvider] Fetching messages for chat_id: ${activeChatSessionId}`);
       try {
+        // First check if chat session is active
+        const { data: chatSession, error: sessionError } = await supabase
+          .from('chat_sessions')
+          .select('is_active')
+          .eq('chat_id', activeChatSessionId)
+          .single();
+          
+        if (sessionError) {
+          if (sessionError.code !== 'PGRST116') { // Not found
+            console.error('[ChatProvider] Error fetching chat session status:', sessionError);
+          }
+        } else if (chatSession) {
+          setIsChatActive(chatSession.is_active);
+          setIsSessionEnded(!chatSession.is_active);
+        }
+        
         const { data, error } = await supabase
           .from('temporary_chat_messages')
           .select('*')
@@ -123,6 +156,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
     fetchInitialMessages();
 
+    // Subscribe to chat messages
     console.log(`[ChatProvider] Subscribing to realtime for chat_id: ${activeChatSessionId}`);
     const newChannel = supabase
       .channel(`realtime-chat-${activeChatSessionId}`)
@@ -148,6 +182,30 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       });
 
     channelRef.current = newChannel;
+    
+    // Also subscribe to chat_sessions table to detect when the session is ended
+    const sessionChannel = supabase
+      .channel(`session-${activeChatSessionId}`)
+      .on(
+        'postgres_changes',
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'chat_sessions', 
+          filter: `chat_id=eq.${activeChatSessionId}` 
+        },
+        (payload) => {
+          console.log('[ChatProvider] Chat session updated:', payload);
+          if (payload.new && payload.new.is_active === false) {
+            console.log('[ChatProvider] Host ended the session');
+            setIsChatActive(false);
+            setIsSessionEnded(true);
+          }
+        }
+      )
+      .subscribe();
+      
+    sessionChannelRef.current = sessionChannel;
 
     return () => {
       console.log(`[ChatProvider] useEffect cleanup: Unsubscribing from ${activeChatSessionId}`);
@@ -232,6 +290,39 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setActiveChatSessionId(newChatSessionId); // This will trigger the main useEffect to fetch messages and subscribe
   }, [activeChatSessionId]); // Removed channelRef.current from dependencies as its state is checked directly
 
+  const endChatSession = async (chatSessionId: string, userId?: string | null) => {
+    if (!chatSessionId) {
+      console.error('[ChatProvider] endChatSession: No chat session ID provided');
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/end-chat-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chatId: chatSessionId,
+          userId: userId,
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('[ChatProvider] Error ending chat session:', errorData);
+        setChatError(`Failed to end chat session: ${errorData.error || 'Unknown error'}`);
+        return;
+      }
+      
+      setIsChatActive(false);
+      setIsSessionEnded(true);
+    } catch (error) {
+      console.error('[ChatProvider] Exception ending chat session:', error);
+      setChatError(`Failed to end chat session: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   // The old startNewChat and initial welcome message useEffect are removed.
   // Chat creation and initial session setup are now handled by the dashboard/invite flow.
 
@@ -242,9 +333,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         chatId: activeChatSessionId,
         isLoadingMessages,
         chatError,
+        isChatActive,
+        isSessionEnded,
         addMessage,
         clearChat,
         joinChatSession,
+        endChatSession,
         activeChatSessionId,
         clearChatError,
       }}

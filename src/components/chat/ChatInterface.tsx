@@ -5,7 +5,7 @@ import { useChat } from '@/context/ChatProvider';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import ShareChat from './ShareChat';
-import { FiShare2, FiSend, FiUser, FiUsers, FiInfo, FiRefreshCw } from 'react-icons/fi';
+import { FiShare2, FiSend, FiUser, FiUsers, FiInfo, FiRefreshCw, FiAlertTriangle } from 'react-icons/fi';
 import { useAuth } from '@/context/AuthProvider';
 
 interface ChatInterfaceProps {
@@ -32,6 +32,9 @@ export default function ChatInterface({
     activeChatSessionId,
     joinChatSession,
     clearChatError,
+    isSessionEnded,
+    isChatActive,
+    endChatSession,
   } = useChat();
   const [newMessage, setNewMessage] = useState('');
   const [showShareOptions, setShowShareOptions] = useState(false);
@@ -89,13 +92,19 @@ export default function ChatInterface({
 
   const otherParticipantName = isHost ? displayGuestName : displayHostName;
   
-  const isInputDisabled = isLoadingMessages || !!chatError || !activeChatSessionId;
+  const isInputDisabled = isLoadingMessages || !!chatError || !activeChatSessionId || isSessionEnded || !isChatActive;
   const isSendButtonDisabled = isInputDisabled || !newMessage.trim() || !currentUserName;
 
   const handleForceRefresh = () => {
     console.log('[ChatInterface] Manual refresh requested for chatId:', chatId);
     clearChatError();
     joinChatSession(chatId); // Re-join and re-fetch
+  };
+
+  const handleEndChat = async () => {
+    if (isHost && chatId) {
+      await endChatSession(chatId, authenticatedUser?.id || null);
+    }
   };
   
   // Dev-only debug info
@@ -131,20 +140,31 @@ export default function ChatInterface({
             </p>
           </div>
         </div>
-        {chatId && isHost && ( // Only show Share button if user isHost
-          <Button 
-            onClick={toggleShareOptions}
-            variant="outline"
-            size="sm"
-            className="text-gray-700 border-gray-200 hover:bg-gray-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors flex items-center gap-1.5"
-          >
-            <FiShare2 className="w-3.5 h-3.5" />
-            <span>{showShareOptions ? 'Hide Options' : 'Share / Info'}</span>
-          </Button>
+        {chatId && isHost && isChatActive && ( // Only show buttons if user isHost and chat is active
+          <div className="flex gap-2">
+            <Button 
+              onClick={toggleShareOptions}
+              variant="outline"
+              size="sm"
+              className="text-gray-700 border-gray-200 hover:bg-gray-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors flex items-center gap-1.5"
+            >
+              <FiShare2 className="w-3.5 h-3.5" />
+              <span>{showShareOptions ? 'Hide Options' : 'Share / Info'}</span>
+            </Button>
+            <Button 
+              onClick={handleEndChat}
+              variant="outline"
+              size="sm"
+              className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-1.5"
+            >
+              <FiAlertTriangle className="w-3.5 h-3.5" />
+              <span>End Chat</span>
+            </Button>
+          </div>
         )}
       </div>
 
-      {isHost && showShareOptions && chatId && ( // Only show Share options panel if user isHost
+      {isHost && showShareOptions && chatId && isChatActive && ( // Only show Share options panel if user isHost and chat is active
         <div className="p-4 border-b border-gray-200 bg-gray-50">
           <ShareChat chatId={chatId} />
           <div className="mt-3 pt-3 border-t border-gray-200">
@@ -153,6 +173,25 @@ export default function ChatInterface({
               This is a temporary chat. The conversation will be deleted when the session ends or the host closes it.
             </p>
           </div>
+        </div>
+      )}
+
+      {isSessionEnded && (
+        <div className="p-4 border-b border-red-200 bg-red-50 text-center">
+          <div className="flex items-center justify-center gap-2 text-red-600 mb-2">
+            <FiAlertTriangle className="w-5 h-5" />
+            <span className="font-medium">This chat session has ended</span>
+          </div>
+          {!isHost && (
+            <p className="text-sm text-red-700">
+              The host has ended this chat session. You can no longer send messages.
+            </p>
+          )}
+          {isHost && (
+            <p className="text-sm text-red-700">
+              You have ended this chat session. The guest can no longer send messages.
+            </p>
+          )}
         </div>
       )}
 
@@ -198,7 +237,11 @@ export default function ChatInterface({
         <form onSubmit={handleSendMessage} className="flex space-x-2 max-w-3xl mx-auto">
           <Input
             type="text"
-            placeholder={isInputDisabled ? (chatError ? "Error occurred" : "Connecting...") : "Type a message..."}
+            placeholder={
+              isSessionEnded ? "Chat session has ended" :
+              isInputDisabled ? (chatError ? "Error occurred" : "Connecting...") : 
+              "Type a message..."
+            }
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             className="flex-1 focus:ring-indigo-500 focus:border-indigo-500 rounded-full"

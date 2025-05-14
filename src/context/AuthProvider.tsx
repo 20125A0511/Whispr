@@ -179,6 +179,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    // Check for active chat sessions and end them before signing out
+    try {
+      // Fetch any active chat sessions for the user
+      const { data: activeSessions } = await supabase
+        .from('chat_sessions')
+        .select('chat_id')
+        .eq('is_active', true)
+        .eq('host_name', user?.user_metadata?.name || user?.email || '');
+      
+      if (activeSessions && activeSessions.length > 0) {
+        console.log(`Ending ${activeSessions.length} active chat sessions for user ${user?.id}`);
+        
+        // End each active session
+        for (const session of activeSessions) {
+          try {
+            const response = await fetch('/api/end-chat-session', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chatId: session.chat_id,
+                userId: user?.id,
+              }),
+            });
+            
+            if (!response.ok) {
+              const errorData = await response.json();
+              console.error(`Failed to end chat session ${session.chat_id}:`, errorData);
+            }
+          } catch (error) {
+            console.error(`Error ending chat session ${session.chat_id}:`, error);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error ending chat sessions during sign out:', error);
+    }
+    
+    // Sign out from Supabase
     await supabase.auth.signOut();
     setPendingRegistration(null);
     localStorage.removeItem(PENDING_REGISTRATION_KEY);
