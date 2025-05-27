@@ -30,6 +30,8 @@ interface ChatContextType {
   endChatSession: (chatSessionId: string, userId?: string | null) => Promise<void>; // End a chat session (host only)
   activeChatSessionId: string | null; // Renamed from chatId for clarity
   clearChatError: () => void;
+  receivedEndChatEvent: { reason: "host" | "guest"; chatId: string } | null;
+  clearReceivedEndChatEvent: () => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -41,12 +43,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [chatError, setChatError] = useState<string | null>(null);
   const [isChatActive, setIsChatActive] = useState<boolean>(true);
   const [isSessionEnded, setIsSessionEnded] = useState<boolean>(false);
+  const [receivedEndChatEvent, setReceivedEndChatEvent] = useState<{ reason: "host" | "guest"; chatId: string } | null>(null);
   
   const channelRef = useRef<RealtimeChannel | null>(null);
   const sessionChannelRef = useRef<RealtimeChannel | null>(null);
 
   const clearChatError = useCallback(() => {
     setChatError(null);
+  }, []);
+
+  const clearReceivedEndChatEvent = useCallback(() => {
+    setReceivedEndChatEvent(null);
   }, []);
 
   const handleNewMessage = useCallback((payload: any) => {
@@ -87,6 +94,27 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         { event: 'INSERT', schema: 'public', table: 'temporary_chat_messages', filter: `chat_id=eq.${chatId}` },
         handleNewMessage
       )
+      .on('broadcast', { event: 'chat:end' }, (response) => { // Listen for 'chat:end'
+        const payload = response.payload;
+        console.log('[ChatProvider] Received "chat:end" broadcast event:', payload);
+        if (payload && 
+            (payload.reason === "host" || payload.reason === "guest") && 
+            payload.chatId === activeChatSessionId // Ensure it's for the current chat
+        ) {
+          // Check if this event was sent by the *other* user.
+          // For now, ChatProvider doesn't know current user's role directly.
+          // The useEndChat hook's handleIncomingEndChatEvent will handle role-based logic.
+          setReceivedEndChatEvent({ reason: payload.reason, chatId: payload.chatId });
+
+          // Also, upon receiving this, we should consider the chat inactive and session ended.
+          // This aligns with how host ending session via API is handled and ensures UI updates consistently.
+          setIsChatActive(false);
+          setIsSessionEnded(true);
+          console.log(`[ChatProvider] Processed "chat:end" event for ${payload.chatId}, reason: ${payload.reason}. Chat marked inactive and session ended.`);
+        } else {
+          console.warn('[ChatProvider] Received "chat:end" event with invalid payload or for different chat:', { payload, currentChatId: activeChatSessionId });
+        }
+      })
       .subscribe((status, err) => {
         console.log(`[ChatProvider] Subscription status for ${chatId}: ${status}`, err);
         if (status === 'SUBSCRIBED') {
@@ -368,6 +396,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         endChatSession,
         activeChatSessionId,
         clearChatError,
+        receivedEndChatEvent,
+        clearReceivedEndChatEvent,
       }}
     >
       {children}

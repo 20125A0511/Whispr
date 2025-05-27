@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useChat } from '@/context/ChatProvider';
 import { Button } from '@/components/ui/Button';
+import { useEndChat } from '@/hooks/useEndChat'; // Adjust path if needed
+import EndChatModal from './EndChatModal'; // Adjust path if needed
 import { Input } from '@/components/ui/Input';
 import ShareChat from './ShareChat';
 import { FiShare2, FiSend, FiUser, FiUsers, FiInfo, FiRefreshCw, FiAlertTriangle } from 'react-icons/fi';
@@ -41,6 +43,14 @@ export default function ChatInterface({
   const [showShareOptions, setShowShareOptions] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const {
+    isModalOpen: isEndChatModalOpen, // Renamed to avoid clash if ChatInterface had its own isModalOpen
+    countdown: endChatCountdown,
+    endReason: endChatReason,
+    isEnding: isChatEnding, // Renamed to avoid potential clash
+    endChat: triggerEndChat,
+  } = useEndChat(isHost ? "host" : "guest"); // Pass currentUserRole
+
   useEffect(() => {
     if (chatId && (!activeChatSessionId || activeChatSessionId !== chatId)) {
       console.log(`[ChatInterface] Prop chatId (${chatId}) differs from context activeChatSessionId (${activeChatSessionId}). Calling joinChatSession.`);
@@ -64,6 +74,10 @@ export default function ChatInterface({
     e.preventDefault();
     console.log('[ChatInterface] handleSendMessage triggered.');
 
+    if (isChatEnding) {
+      console.log('[ChatInterface] Chat is ending, cannot send message.');
+      return;
+    }
     if (!activeChatSessionId) {
       console.error('[ChatInterface] Cannot send message, no active chat session in context.');
       // Optionally, set a local error or trigger a reconnect/rejoin
@@ -93,8 +107,8 @@ export default function ChatInterface({
 
   const otherParticipantName = isHost ? displayGuestName : displayHostName;
   
-  const isInputDisabled = isLoadingMessages || !!chatError || !activeChatSessionId || isSessionEnded || !isChatActive;
-  const isSendButtonDisabled = isInputDisabled || !newMessage.trim() || !currentUserName;
+  const isInputDisabled = isLoadingMessages || !!chatError || !activeChatSessionId || isSessionEnded || !isChatActive || isChatEnding;
+  const isSendButtonDisabled = isInputDisabled || !newMessage.trim() || !currentUserName || isChatEnding;
 
   const handleForceRefresh = () => {
     console.log('[ChatInterface] Manual refresh requested for chatId:', chatId);
@@ -102,9 +116,9 @@ export default function ChatInterface({
     joinChatSession(chatId); // Re-join and re-fetch
   };
 
-  const handleEndChat = async () => {
-    if (isHost && chatId) {
-      await endChatSession(chatId, authenticatedUser?.id || null);
+  const handleEndChatButtonClick = () => {
+    if (chatId && !isChatEnding) {
+      triggerEndChat(isHost ? "host" : "guest", chatId);
     }
   };
   
@@ -133,6 +147,12 @@ export default function ChatInterface({
 
   return (
     <div className="flex flex-col h-full">
+      <EndChatModal
+        isOpen={isEndChatModalOpen}
+        actor={endChatReason}
+        countdown={endChatCountdown}
+        onClose={() => {}} // Modal is not closable by user interaction as per spec
+      />
       {/* <DebugInfo /> */}
       <div className="bg-white border-b border-gray-200 p-4 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-3">
@@ -149,22 +169,28 @@ export default function ChatInterface({
             </div>
           </div>
         </div>
-        {chatId && isHost && isChatActive && ( // Only show buttons if user isHost and chat is active
+        {/* "End Chat" and "Share/Info" buttons container */}
+        {chatId && isChatActive && (
           <div className="flex gap-2">
+            {isHost && ( // Share/Info button only for host
+              <Button 
+                onClick={toggleShareOptions}
+                variant="outline"
+                size="sm"
+                className="text-gray-700 border-gray-200 hover:bg-gray-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors flex items-center gap-1.5"
+                disabled={isChatEnding || !isChatActive} // Disable if ending or chat not active
+              >
+                <FiShare2 className="w-3.5 h-3.5" />
+                <span>{showShareOptions ? 'Hide Options' : 'Share / Info'}</span>
+              </Button>
+            )}
+            {/* "End Chat" button visible to both host and guest when chat is active */}
             <Button 
-              onClick={toggleShareOptions}
-              variant="outline"
-              size="sm"
-              className="text-gray-700 border-gray-200 hover:bg-gray-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors flex items-center gap-1.5"
-            >
-              <FiShare2 className="w-3.5 h-3.5" />
-              <span>{showShareOptions ? 'Hide Options' : 'Share / Info'}</span>
-            </Button>
-            <Button 
-              onClick={handleEndChat}
+              onClick={handleEndChatButtonClick}
               variant="outline"
               size="sm"
               className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-1.5"
+              disabled={isChatEnding || !isChatActive} // Disable if ending or chat not active
             >
               <FiAlertTriangle className="w-3.5 h-3.5" />
               <span>End Chat</span>
@@ -173,7 +199,7 @@ export default function ChatInterface({
         )}
       </div>
 
-      {isHost && showShareOptions && chatId && isChatActive && ( // Only show Share options panel if user isHost and chat is active
+      {isHost && showShareOptions && chatId && isChatActive && !isChatEnding && ( // Also hide if chat is ending
         <div className="p-4 border-b border-gray-200 bg-gray-50">
           <ShareChat chatId={chatId} />
           <div className="mt-3 pt-3 border-t border-gray-200">
@@ -275,6 +301,7 @@ export default function ChatInterface({
           <Input
             type="text"
             placeholder={
+              isChatEnding ? "Chat is ending..." :
               isSessionEnded ? "Chat session has ended" :
               isInputDisabled ? (chatError ? "Error occurred" : "Connecting...") : 
               "Type a message..."
@@ -282,13 +309,13 @@ export default function ChatInterface({
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             className="flex-1 focus:ring-indigo-500 focus:border-indigo-500 rounded-full"
-            disabled={isInputDisabled}
+            disabled={isInputDisabled || isChatEnding} // Ensure disabling during chat ending
             onFocus={handleDismissError} // Clear error on focus to allow typing if it was an error
           />
           <Button 
             type="submit" 
             className="rounded-full bg-indigo-600 hover:bg-indigo-700 flex items-center gap-1.5 px-4"
-            disabled={isSendButtonDisabled}
+            disabled={isSendButtonDisabled || isChatEnding} // Ensure disabling during chat ending
           >
             <span>Send</span>
             <FiSend className="w-3.5 h-3.5" />
