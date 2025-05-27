@@ -5,9 +5,10 @@ import { useChat } from '@/context/ChatProvider';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import ShareChat from './ShareChat';
-import { FiShare2, FiSend, FiUser, FiUsers, FiInfo, FiRefreshCw, FiAlertTriangle } from 'react-icons/fi';
+import { FiShare2, FiSend, FiUser, FiUsers, FiInfo, FiRefreshCw, FiAlertTriangle, FiSmile } from 'react-icons/fi'; // Added FiSmile
 import { useAuth } from '@/context/AuthProvider';
 import Logo from '@/components/ui/Logo';
+import Picker, { EmojiClickData } from 'emoji-picker-react'; // Added emoji-picker-react
 
 interface ChatInterfaceProps {
   chatId: string;
@@ -36,10 +37,43 @@ export default function ChatInterface({
     isSessionEnded,
     isChatActive,
     endChatSession,
+    typingUsers, // Added
+    sendTypingEvent, // Added
   } = useChat();
   const [newMessage, setNewMessage] = useState('');
   const [showShareOptions, setShowShareOptions] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false); // Added for emoji picker
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null); // Added for emoji picker click outside
+  const isCurrentlyTypingRef = useRef(false); 
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null); 
+
+  useEffect(() => {
+    // Cleanup timeout on unmount
+    const cleanupTimeout = () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+
+    // Click outside handler for emoji picker
+    const handleClickOutside = (event: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    if (showEmojiPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      cleanupTimeout();
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showEmojiPicker]); // Added showEmojiPicker dependency
 
   useEffect(() => {
     if (chatId && (!activeChatSessionId || activeChatSessionId !== chatId)) {
@@ -95,6 +129,53 @@ export default function ChatInterface({
   
   const isInputDisabled = isLoadingMessages || !!chatError || !activeChatSessionId || isSessionEnded || !isChatActive;
   const isSendButtonDisabled = isInputDisabled || !newMessage.trim() || !currentUserName;
+
+  const onEmojiClick = (emojiObject: EmojiClickData) => {
+    setNewMessage(prevInput => prevInput + emojiObject.emoji);
+    // setShowEmojiPicker(false); // Optional: close picker after selection
+  };
+
+  const handleNewMessageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const currentMessage = e.target.value;
+    setNewMessage(currentMessage);
+
+    if (!sendTypingEvent || !currentUserName) return;
+
+    if (currentMessage && !isCurrentlyTypingRef.current) {
+      sendTypingEvent(currentUserName, true);
+      isCurrentlyTypingRef.current = true;
+    } else if (!currentMessage && isCurrentlyTypingRef.current) {
+      sendTypingEvent(currentUserName, false);
+      isCurrentlyTypingRef.current = false;
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      return; // Avoid setting timeout if message is empty
+    }
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    if (currentMessage) { // Only set timeout if there's text
+        typingTimeoutRef.current = setTimeout(() => {
+        sendTypingEvent(currentUserName, false);
+        isCurrentlyTypingRef.current = false;
+      }, 1500);
+    }
+  };
+  
+  // When message is sent, also send a "stopped typing" event
+  useEffect(() => {
+    if (!newMessage && isCurrentlyTypingRef.current && sendTypingEvent && currentUserName) {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      sendTypingEvent(currentUserName, false);
+      isCurrentlyTypingRef.current = false;
+    }
+  }, [newMessage, sendTypingEvent, currentUserName]);
+
 
   const handleForceRefresh = () => {
     console.log('[ChatInterface] Manual refresh requested for chatId:', chatId);
@@ -207,7 +288,9 @@ export default function ChatInterface({
       <div className="flex-1 p-5 overflow-y-auto bg-white">
         <div className="space-y-5 max-w-3xl mx-auto">
           {isLoadingMessages && messages.length === 0 && (
-            <div className="text-center py-10"><p>Loading messages...</p></div>
+            <div className="text-center py-10">
+              <p><FiRefreshCw className="animate-spin mr-2 h-5 w-5 inline" />Loading messages...</p>
+            </div>
           )}
           {!isLoadingMessages && chatError && (
             <div className="text-center py-6 bg-red-50 p-4 rounded-md relative">
@@ -237,9 +320,14 @@ export default function ChatInterface({
               )}
               
               {!isRealtimeError(chatError) && (
-                <Button onClick={handleDismissError} variant="outline" size="sm" className="mt-2">
-                  Dismiss
-                </Button>
+                <>
+                  <p className="text-sm text-red-600 mt-2">
+                    Please check your internet connection or try again. If the problem persists, the chat session may have issues.
+                  </p>
+                  <Button onClick={handleDismissError} variant="outline" size="sm" className="mt-3">
+                    Dismiss
+                  </Button>
+                </>
               )}
             </div>
           )}
@@ -253,15 +341,15 @@ export default function ChatInterface({
               className={`flex ${message.sender_name === currentUserName ? 'justify-end' : 'justify-start'}`}
             >
               <div 
-                className={`max-w-[80%] p-3.5 rounded-xl shadow-sm ${ message.sender_name === currentUserName ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none border border-gray-200'}
+                className={`max-w-[80%] p-3.5 rounded-xl shadow-sm ${ message.sender_name === currentUserName ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-sky-100 text-gray-800 rounded-bl-none border border-gray-200'}
                 }`}
               >
                 <div className={`text-xs mb-1 font-medium ${message.sender_name === currentUserName ? 'text-indigo-200' : 'text-gray-500'}`}>
                   {message.sender_name} {message.user_id === authenticatedUser?.id && isHost ? '(You - Host)' : message.sender_name === currentUserName ? '(You)' : ''}
                 </div>
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.message_text}</p>
-                <div className={`text-xs mt-1.5 ${message.sender_name === currentUserName ? 'text-indigo-200' : 'text-gray-500'}`}>
-                  {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                <div className={`text-xs mt-1.5 ${message.sender_name === currentUserName ? 'text-indigo-100' : 'text-gray-500'}`}>
+                  {new Date(message.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}
                 </div>
               </div>
             </div>
@@ -270,30 +358,65 @@ export default function ChatInterface({
         </div>
       </div>
 
-      <div className="border-t border-gray-200 p-4 bg-white">
-        <form onSubmit={handleSendMessage} className="flex space-x-2 max-w-3xl mx-auto">
-          <Input
-            type="text"
-            placeholder={
-              isSessionEnded ? "Chat session has ended" :
-              isInputDisabled ? (chatError ? "Error occurred" : "Connecting...") : 
-              "Type a message..."
+      <div className="border-t border-gray-200 p-4 bg-white relative"> {/* Added relative positioning for emoji picker */}
+        <div className="max-w-3xl mx-auto">
+          {showEmojiPicker && (
+            <div className="absolute bottom-full right-0 mb-2 z-10" ref={emojiPickerRef}> {/* Adjusted position */}
+              <Picker 
+                onEmojiClick={onEmojiClick}
+                autoFocusSearch={false}
+                height={350}
+                width="100%" // Make it responsive or fixed width
+                // theme={Theme.DARK} // Example theme
+              />
+            </div>
+          )}
+          {(() => {
+            const otherTypingUsers = typingUsers.filter(name => name !== currentUserName && name); // Ensure name is not empty
+            if (otherTypingUsers.length > 0) {
+              const names = otherTypingUsers.join(', ');
+              return (
+                <p className="text-xs italic text-gray-500 h-4 mb-1 ml-2">
+                  {names} {otherTypingUsers.length === 1 ? 'is' : 'are'} typing...
+                </p>
+              );
             }
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            className="flex-1 focus:ring-indigo-500 focus:border-indigo-500 rounded-full"
-            disabled={isInputDisabled}
-            onFocus={handleDismissError} // Clear error on focus to allow typing if it was an error
-          />
-          <Button 
-            type="submit" 
-            className="rounded-full bg-indigo-600 hover:bg-indigo-700 flex items-center gap-1.5 px-4"
-            disabled={isSendButtonDisabled}
-          >
-            <span>Send</span>
-            <FiSend className="w-3.5 h-3.5" />
-          </Button>
-        </form>
+            return <div className="h-4 mb-1"></div>; // Placeholder to prevent layout shift
+          })()}
+          <form onSubmit={handleSendMessage} className="flex items-center space-x-2"> {/* Added items-center */}
+            <Input
+              type="text"
+              placeholder={
+                isSessionEnded ? "Chat session has ended" :
+                isInputDisabled ? (chatError ? "Error occurred" : "Connecting...") : 
+                "Type a message..."
+              }
+              value={newMessage}
+              onChange={handleNewMessageChange} // Changed
+              className="flex-1 focus:ring-indigo-500 focus:border-indigo-500 rounded-full"
+              disabled={isInputDisabled}
+              onFocus={handleDismissError} // Clear error on focus to allow typing if it was an error
+            />
+            <Button
+              type="button"
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              variant="outline" // Use an existing variant or style directly
+              className="p-2 rounded-full hover:bg-gray-100" // Example styling
+              aria-label="Toggle emoji picker"
+              disabled={isInputDisabled}
+            >
+              <FiSmile className="w-5 h-5 text-gray-500" />
+            </Button>
+            <Button 
+              type="submit" 
+              className="rounded-full bg-indigo-600 hover:bg-indigo-700 flex items-center gap-1.5 px-4"
+              disabled={isSendButtonDisabled}
+            >
+              <span>Send</span>
+              <FiSend className="w-3.5 h-3.5" />
+            </Button>
+          </form>
+        </div>
       </div>
     </div>
   );

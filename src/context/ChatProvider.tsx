@@ -30,6 +30,8 @@ interface ChatContextType {
   endChatSession: (chatSessionId: string, userId?: string | null) => Promise<void>; // End a chat session (host only)
   activeChatSessionId: string | null; // Renamed from chatId for clarity
   clearChatError: () => void;
+  typingUsers: string[];
+  sendTypingEvent: (userName: string, isTyping: boolean) => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -41,6 +43,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [chatError, setChatError] = useState<string | null>(null);
   const [isChatActive, setIsChatActive] = useState<boolean>(true);
   const [isSessionEnded, setIsSessionEnded] = useState<boolean>(false);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
   
   const channelRef = useRef<RealtimeChannel | null>(null);
   const sessionChannelRef = useRef<RealtimeChannel | null>(null);
@@ -92,6 +95,20 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         if (status === 'SUBSCRIBED') {
           console.log(`[ChatProvider] Successfully subscribed to ${chatId}.`);
           setChatError(null); // Clear any previous subscription errors
+          
+          // Subscribe to typing events
+          channel.on('broadcast', { event: 'TYPING_EVENT' }, (payload) => {
+            console.log('[ChatProvider] Typing event received:', payload);
+            const { userName, isTyping } = payload.payload;
+            // For now, let ChatInterface filter out the current user.
+            // Or, we can get currentUserName from a ref if we store it.
+            // For simplicity, ChatInterface will handle filtering for display.
+            setTypingUsers(prev => {
+              const otherUsers = prev.filter(u => u !== userName);
+              return isTyping ? [...otherUsers, userName] : otherUsers;
+            });
+          });
+
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.error(`[ChatProvider] Subscription error for ${chatId}:`, err);
           
@@ -117,7 +134,20 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       });
       
     return channel;
-  }, [handleNewMessage]);
+  }, [handleNewMessage]); // Removed setTypingUsers from deps, it's a setter
+
+  const sendTypingEvent = useCallback((userName: string, isTyping: boolean) => {
+    if (channelRef.current && channelRef.current.state === 'joined') {
+      console.log(`[ChatProvider] Sending TYPING_EVENT: ${userName} is ${isTyping ? 'typing' : 'stopping'}`);
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'TYPING_EVENT',
+        payload: { userName, isTyping },
+      });
+    } else {
+      console.warn('[ChatProvider] Cannot send typing event, channel not ready or not joined.');
+    }
+  }, []); // channelRef is a ref, so it doesn't need to be in deps
 
   useEffect(() => {
     const cleanupChannel = async () => {
@@ -147,11 +177,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setMessages([]);
       setIsChatActive(true);
       setIsSessionEnded(false);
+      setTypingUsers([]); // Clear typing users when session is not active
       cleanupChannel();
       return;
     }
 
     console.log(`[ChatProvider] Active session changed to: ${activeChatSessionId}. Setting up new channel.`);
+    setTypingUsers([]); // Clear typing users for the new session
 
     // Cleanup previous channel before setting up a new one.
     // This is important if activeChatSessionId changes rapidly.
@@ -368,6 +400,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         endChatSession,
         activeChatSessionId,
         clearChatError,
+        typingUsers,
+        sendTypingEvent,
       }}
     >
       {children}

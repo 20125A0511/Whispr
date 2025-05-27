@@ -6,12 +6,13 @@ import { useChat } from '@/context/ChatProvider';
 import ChatInterface from '@/components/chat/ChatInterface';
 import { useAuth } from '@/context/AuthProvider';
 import OtpAuthFlow from '@/components/auth/OtpAuthFlow';
+import { FiRefreshCw } from 'react-icons/fi';
 
 // A small loader component for Suspense fallback
 function ChatPageLoader() {
   return (
     <div className="fixed inset-0 bg-white flex items-center justify-center z-[200]">
-      <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600"></div>
+      <FiRefreshCw className="animate-spin h-12 w-12 text-blue-600" />
       <p className="ml-4 text-lg font-medium text-gray-700">Loading Chat...</p>
     </div>
   );
