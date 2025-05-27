@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useChat } from '@/context/ChatProvider';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -36,10 +37,12 @@ export default function ChatInterface({
     isSessionEnded,
     isChatActive,
     endChatSession,
+    clearChat,
   } = useChat();
   const [newMessage, setNewMessage] = useState('');
   const [showShareOptions, setShowShareOptions] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     if (chatId && (!activeChatSessionId || activeChatSessionId !== chatId)) {
@@ -52,6 +55,24 @@ export default function ChatInterface({
     console.log('[ChatInterface] Props:', { chatId, currentUserName, isHost, initialHostName, initialGuestName });
     console.log('[ChatInterface] Chat context:', { activeChatSessionId, isLoadingMessages, chatError, messageCount: messages.length });
   }, [chatId, messages.length, isLoadingMessages, chatError, activeChatSessionId]);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isSessionEnded && !isHost) {
+      console.log('[ChatInterface] Session ended and user is not host. Starting 5s redirect timer.');
+      timer = setTimeout(() => {
+        console.log('[ChatInterface] Redirecting non-host user to /chat-ended and clearing chat.');
+        clearChat();
+        router.push('/chat-ended');
+      }, 5000);
+    }
+    return () => {
+      if (timer) {
+        console.log('[ChatInterface] Clearing redirect timer.');
+        clearTimeout(timer);
+      }
+    };
+  }, [isSessionEnded, isHost, clearChat, router]);
 
   const displayHostName = initialHostName || (isHost ? currentUserName : 'Host');
   const displayGuestName = initialGuestName || (!isHost ? currentUserName : 'Guest');
