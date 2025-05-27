@@ -8,6 +8,8 @@ import ShareChat from './ShareChat';
 import { FiShare2, FiSend, FiUser, FiUsers, FiInfo, FiRefreshCw, FiAlertTriangle } from 'react-icons/fi';
 import { useAuth } from '@/context/AuthProvider';
 import Logo from '@/components/ui/Logo';
+import useEndChat from '@/hooks/useEndChat';
+import EndChatModal from '@/components/chat/EndChatModal';
 
 interface ChatInterfaceProps {
   chatId: string;
@@ -40,6 +42,15 @@ export default function ChatInterface({
   const [newMessage, setNewMessage] = useState('');
   const [showShareOptions, setShowShareOptions] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const {
+    showEndChatModal,
+    countdown,
+    endedByHost,
+    isEndingChat,
+    endChat,
+    closeModalAndReset,
+  } = useEndChat({ chatId, isHost });
 
   useEffect(() => {
     if (chatId && (!activeChatSessionId || activeChatSessionId !== chatId)) {
@@ -103,9 +114,11 @@ export default function ChatInterface({
   };
 
   const handleEndChat = async () => {
+    // Now calls the hook's endChat function
     if (isHost && chatId) {
-      await endChatSession(chatId, authenticatedUser?.id || null);
+      endChat('host'); 
     }
+    // For guest, a new button will call endChat('guest')
   };
   
   // Dev-only debug info
@@ -133,6 +146,12 @@ export default function ChatInterface({
 
   return (
     <div className="flex flex-col h-full">
+      <EndChatModal
+        isOpen={showEndChatModal}
+        onClose={closeModalAndReset}
+        countdown={countdown}
+        endedByHost={endedByHost}
+      />
       {/* <DebugInfo /> */}
       <div className="bg-white border-b border-gray-200 p-4 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-3">
@@ -149,31 +168,47 @@ export default function ChatInterface({
             </div>
           </div>
         </div>
-        {chatId && isHost && isChatActive && ( // Only show buttons if user isHost and chat is active
-          <div className="flex gap-2">
+        <div className="flex gap-2">
+          {chatId && isHost && isChatActive && !isSessionEnded && (
+            <>
+              <Button 
+                onClick={toggleShareOptions}
+                variant="outline"
+                size="sm"
+                className="text-gray-700 border-gray-200 hover:bg-gray-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors flex items-center gap-1.5"
+                disabled={isEndingChat} // Disable during end chat flow
+              >
+                <FiShare2 className="w-3.5 h-3.5" />
+                <span>{showShareOptions ? 'Hide Options' : 'Share / Info'}</span>
+              </Button>
+              <Button 
+                onClick={() => endChat('host')} // Updated to use hook's endChat
+                variant="outline"
+                size="sm"
+                className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-1.5"
+                disabled={isEndingChat} // Disable during end chat flow
+              >
+                <FiAlertTriangle className="w-3.5 h-3.5" />
+                <span>End Chat</span>
+              </Button>
+            </>
+          )}
+          {chatId && !isHost && isChatActive && !isSessionEnded && (
             <Button 
-              onClick={toggleShareOptions}
-              variant="outline"
-              size="sm"
-              className="text-gray-700 border-gray-200 hover:bg-gray-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors flex items-center gap-1.5"
-            >
-              <FiShare2 className="w-3.5 h-3.5" />
-              <span>{showShareOptions ? 'Hide Options' : 'Share / Info'}</span>
-            </Button>
-            <Button 
-              onClick={handleEndChat}
+              onClick={() => endChat('guest')} // Guest's end chat button
               variant="outline"
               size="sm"
               className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-1.5"
+              disabled={isEndingChat} // Disable during end chat flow
             >
               <FiAlertTriangle className="w-3.5 h-3.5" />
               <span>End Chat</span>
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {isHost && showShareOptions && chatId && isChatActive && ( // Only show Share options panel if user isHost and chat is active
+      {isHost && showShareOptions && chatId && isChatActive && !isSessionEnded && ( // Only show Share options panel if user isHost and chat is active
         <div className="p-4 border-b border-gray-200 bg-gray-50">
           <ShareChat chatId={chatId} />
           <div className="mt-3 pt-3 border-t border-gray-200">
@@ -275,6 +310,7 @@ export default function ChatInterface({
           <Input
             type="text"
             placeholder={
+              isEndingChat ? "Ending chat..." :
               isSessionEnded ? "Chat session has ended" :
               isInputDisabled ? (chatError ? "Error occurred" : "Connecting...") : 
               "Type a message..."
@@ -282,13 +318,13 @@ export default function ChatInterface({
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             className="flex-1 focus:ring-indigo-500 focus:border-indigo-500 rounded-full"
-            disabled={isInputDisabled}
+            disabled={isInputDisabled || isEndingChat} // Updated disabled state
             onFocus={handleDismissError} // Clear error on focus to allow typing if it was an error
           />
           <Button 
             type="submit" 
             className="rounded-full bg-indigo-600 hover:bg-indigo-700 flex items-center gap-1.5 px-4"
-            disabled={isSendButtonDisabled}
+            disabled={isSendButtonDisabled || isEndingChat} // Updated disabled state
           >
             <span>Send</span>
             <FiSend className="w-3.5 h-3.5" />

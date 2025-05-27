@@ -3,9 +3,11 @@
 import { useEffect, Suspense } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { useChat } from '@/context/ChatProvider';
-import ChatInterface from '@/components/chat/ChatInterface';
+import ChatInterfaceComponent from '@/components/chat/ChatInterface'; // Renamed to avoid conflict
 import { useAuth } from '@/context/AuthProvider';
 import OtpAuthFlow from '@/components/auth/OtpAuthFlow';
+import useEndChat from '@/hooks/useEndChat';
+import EndChatModal from '@/components/chat/EndChatModal';
 
 // A small loader component for Suspense fallback
 function ChatPageLoader() {
@@ -37,7 +39,7 @@ function ChatPageContent() {
   // If `user` is available and no `guestNameFromQuery`, this user is likely the host starting their own session view.
 
   let currentUserName: string | null = null;
-  let isHost = false;
+  let isHost = false; // This will be used for useEndChat
 
   if (user && hostNameFromQuery && (user.user_metadata?.name === hostNameFromQuery || user.email === hostNameFromQuery /* fallback if name not set */ )) {
     currentUserName = user.user_metadata?.name || user.email || 'Host';
@@ -46,10 +48,17 @@ function ChatPageContent() {
     currentUserName = guestNameFromQuery;
     isHost = false;
   } else if (user) {
-    // This case implies the authenticated host is viewing the chat they created, not via a join link
     currentUserName = user.user_metadata?.name || user.email || 'Host';
-    isHost = true; // Assuming if user is present and no guest param, they are the host.
+    isHost = true;
   }
+
+  const {
+    showEndChatModal,
+    countdown,
+    endedByHost,
+    endChat,
+    closeModalAndReset,
+  } = useEndChat({ chatId, isHost });
   
   useEffect(() => {
     if (chatId) {
@@ -98,17 +107,34 @@ function ChatPageContent() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      <main className="flex-1 flex flex-col bg-white shadow-md max-w-4xl mx-auto h-full">
-        <ChatInterface 
-          chatId={chatId} 
-          currentUserName={currentUserName} 
-          isHost={isHost}
-          initialHostName={hostNameFromQuery || (isHost ? currentUserName : undefined)} // Pass initial host/guest names
-          initialGuestName={guestNameFromQuery || (!isHost && currentUserName ? currentUserName : undefined)}
-        />
-      </main>
-    </div>
+    <>
+      <EndChatModal
+        isOpen={showEndChatModal}
+        onClose={closeModalAndReset}
+        countdown={countdown}
+        endedByHost={endedByHost}
+      />
+      <div className="flex h-screen bg-gray-100">
+        <main className="flex-1 flex flex-col bg-white shadow-md max-w-4xl mx-auto h-full">
+          {/* Consider where to best place this button - this is a simple placement */}
+          <div className="p-2 text-right border-b border-gray-200">
+            <button
+              onClick={() => endChat(isHost ? 'host' : 'guest')}
+              className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors text-sm font-medium"
+            >
+              End Chat
+            </button>
+          </div>
+          <ChatInterfaceComponent 
+            chatId={chatId} 
+            currentUserName={currentUserName} 
+            isHost={isHost}
+            initialHostName={hostNameFromQuery || (isHost ? currentUserName : undefined)}
+            initialGuestName={guestNameFromQuery || (!isHost && currentUserName ? currentUserName : undefined)}
+          />
+        </main>
+      </div>
+    </>
   );
 }
 
