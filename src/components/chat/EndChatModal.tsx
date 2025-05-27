@@ -1,4 +1,5 @@
 import React from 'react';
+import { FiClock } from 'react-icons/fi'; // Import an icon
 
 interface EndChatModalProps {
   isOpen: boolean;
@@ -22,15 +23,16 @@ const EndChatModal: React.FC<EndChatModalProps> = ({
     : "This chat has been ended by the guest.";
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-      <div className="bg-neutral-50 dark:bg-neutral-900 p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-md text-center">
-        <h2 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-neutral-50 mb-4">
+    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[100] p-4"> {/* Increased z-index slightly */}
+      <div className="bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-md text-center">
+        <FiClock className="w-12 h-12 mx-auto mb-4 text-indigo-600 dark:text-indigo-400" />
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-50 mb-3">
           {headline}
         </h2>
-        <p className="text-neutral-700 dark:text-neutral-300 text-sm sm:text-base mb-6">
-          Chat history will be permanently deleted in {countdown} seconds.
+        <p className="text-gray-700 dark:text-gray-300 text-sm sm:text-base mb-5">
+          You will be redirected shortly. Chat history will be permanently deleted.
         </p>
-        <div className="text-6xl sm:text-7xl font-bold text-neutral-900 dark:text-neutral-50">
+        <div className="text-6xl sm:text-7xl font-bold text-indigo-600 dark:text-indigo-400">
           {countdown}
         </div>
       </div>

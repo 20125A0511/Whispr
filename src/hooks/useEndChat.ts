@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
+import { useChat } from '@/context/ChatProvider'; // Import useChat
 
 type UseEndChatProps = {
   chatId: string;
@@ -10,6 +11,7 @@ type UseEndChatProps = {
 
 const useEndChat = ({ chatId, isHost }: UseEndChatProps) => { // Removed onRemoteEnd
   const router = useRouter();
+  const { endChatSessionInternal } = useChat(); // Get endChatSessionInternal
 
   const [showEndChatModal, setShowEndChatModal] = useState<boolean>(false);
   const [countdown, setCountdown] = useState<number>(5);
@@ -29,6 +31,10 @@ const useEndChat = ({ chatId, isHost }: UseEndChatProps) => { // Removed onRemot
     setIsEndingChat(true);
     setShowEndChatModal(true);
     setEndedByHost(reason === 'host');
+
+    if (reason === 'host') {
+      endChatSessionInternal(chatId); // Call for immediate host UI update
+    }
 
     const channel = supabase.channel(`session-${chatId}`);
     // No need to subscribe here just to send.

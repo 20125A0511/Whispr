@@ -28,6 +28,7 @@ interface ChatContextType {
   // startNewChat: () => string; // Now primarily for host dashboard, returns new chatId
   joinChatSession: (chatSessionId: string) => void; // To explicitly join/load a session
   endChatSession: (chatSessionId: string, userId?: string | null) => Promise<void>; // End a chat session (host only)
+  endChatSessionInternal: (chatSessionId: string) => void; // For host's immediate UI update
   activeChatSessionId: string | null; // Renamed from chatId for clarity
   clearChatError: () => void;
 }
@@ -350,6 +351,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const endChatSessionInternal = useCallback((chatSessionId: string) => {
+    if (activeChatSessionId === chatSessionId) {
+      console.log('[ChatProvider] Ending chat session internally (host action):', chatSessionId);
+      setIsChatActive(false);
+      setIsSessionEnded(true);
+    } else {
+      console.warn('[ChatProvider] endChatSessionInternal called with mismatched chatId. Current:', activeChatSessionId, 'Provided:', chatSessionId);
+    }
+  }, [activeChatSessionId]);
+
   // The old startNewChat and initial welcome message useEffect are removed.
   // Chat creation and initial session setup are now handled by the dashboard/invite flow.
 
@@ -366,6 +377,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         clearChat,
         joinChatSession,
         endChatSession,
+        endChatSessionInternal, // Add this to context
         activeChatSessionId,
         clearChatError,
       }}

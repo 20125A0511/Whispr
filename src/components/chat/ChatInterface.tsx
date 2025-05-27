@@ -5,9 +5,10 @@ import { useChat } from '@/context/ChatProvider';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import ShareChat from './ShareChat';
-import { FiShare2, FiSend, FiUser, FiUsers, FiInfo, FiRefreshCw, FiAlertTriangle } from 'react-icons/fi';
+import { FiShare2, FiSend, FiUser, FiUsers, FiInfo, FiRefreshCw, FiAlertTriangle, FiSmile, FiSlash, FiLoader, FiMessageSquare } from 'react-icons/fi'; // Added FiSlash, FiLoader, FiMessageSquare
 import { useAuth } from '@/context/AuthProvider';
 import Logo from '@/components/ui/Logo';
+import EmojiPicker, { EmojiClickData } from 'emoji-picker-react'; // Added EmojiPicker imports
 import useEndChat from '@/hooks/useEndChat';
 import EndChatModal from '@/components/chat/EndChatModal';
 
@@ -41,7 +42,9 @@ export default function ChatInterface({
   } = useChat();
   const [newMessage, setNewMessage] = useState('');
   const [showShareOptions, setShowShareOptions] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false); // Added emoji picker state
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null); // Ref for the emoji picker
 
   const {
     showEndChatModal,
@@ -70,6 +73,24 @@ export default function ChatInterface({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Close emoji picker on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [emojiPickerRef]);
+
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
+    setNewMessage((prevMessage) => prevMessage + emojiData.emoji);
+    // setShowEmojiPicker(false); // Keep picker open for multiple emojis
+  };
 
   const handleSendMessage = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -221,18 +242,18 @@ export default function ChatInterface({
       )}
 
       {isSessionEnded && (
-        <div className="p-4 border-b border-red-200 bg-red-50 text-center">
-          <div className="flex items-center justify-center gap-2 text-red-600 mb-2">
-            <FiAlertTriangle className="w-5 h-5" />
-            <span className="font-medium">This chat session has ended</span>
+        <div className="p-6 border-b border-red-300 bg-red-100 text-center shadow-inner">
+          <div className="flex flex-col items-center justify-center gap-2 text-red-700">
+            <FiSlash className="w-10 h-10 mb-2" />
+            <span className="font-semibold text-lg">This chat session has ended</span>
           </div>
           {!isHost && (
-            <p className="text-sm text-red-700">
+            <p className="text-sm text-red-800 mt-2">
               The host has ended this chat session. You can no longer send messages.
             </p>
           )}
           {isHost && (
-            <p className="text-sm text-red-700">
+            <p className="text-sm text-red-800 mt-2">
               You have ended this chat session. The guest can no longer send messages.
             </p>
           )}
@@ -242,7 +263,11 @@ export default function ChatInterface({
       <div className="flex-1 p-5 overflow-y-auto bg-white">
         <div className="space-y-5 max-w-3xl mx-auto">
           {isLoadingMessages && messages.length === 0 && (
-            <div className="text-center py-10"><p>Loading messages...</p></div>
+            <div className="text-center py-12 text-gray-500">
+              <FiLoader className="animate-spin h-8 w-8 mx-auto mb-3 text-indigo-600" />
+              <p className="text-lg font-medium">Loading messages...</p>
+              <p className="text-sm">Please wait a moment.</p>
+            </div>
           )}
           {!isLoadingMessages && chatError && (
             <div className="text-center py-6 bg-red-50 p-4 rounded-md relative">
@@ -279,7 +304,11 @@ export default function ChatInterface({
             </div>
           )}
           {!isLoadingMessages && !chatError && messages.length === 0 && (
-            <div className="text-center py-10"><p>No messages yet. Send one to start!</p></div>
+            <div className="text-center py-12 text-gray-500">
+              <FiMessageSquare className="h-12 w-12 mx-auto mb-3 text-indigo-600 opacity-75" />
+              <p className="text-xl font-medium mb-1">No messages yet</p>
+              <p className="text-sm">Be the first to send a message to start the conversation!</p>
+            </div>
           )}
           
           {messages.map((message) => (
@@ -305,8 +334,29 @@ export default function ChatInterface({
         </div>
       </div>
 
-      <div className="border-t border-gray-200 p-4 bg-white">
-        <form onSubmit={handleSendMessage} className="flex space-x-2 max-w-3xl mx-auto">
+      <div className="border-t border-gray-200 p-4 bg-white relative"> {/* Added relative positioning for emoji picker */}
+        {showEmojiPicker && (
+          <div ref={emojiPickerRef} className="absolute bottom-full mb-2 right-0 sm:right-auto sm:left-0 z-10"> {/* Positioned emoji picker */}
+            <EmojiPicker
+              onEmojiClick={handleEmojiClick}
+              autoFocusSearch={false}
+              // width={350} // You can adjust width and height
+              // height={450}
+              // theme={Theme.AUTO} // Or Theme.DARK / Theme.LIGHT
+            />
+          </div>
+        )}
+        <form onSubmit={handleSendMessage} className="flex space-x-2 max-w-3xl mx-auto items-center"> {/* Added items-center */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="p-2 text-gray-500 hover:text-indigo-600"
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            disabled={isInputDisabled || isEndingChat}
+          >
+            <FiSmile className="w-5 h-5" />
+          </Button>
           <Input
             type="text"
             placeholder={

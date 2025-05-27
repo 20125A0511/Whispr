@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/context/AuthProvider";
 import { ChatProvider } from "@/context/ChatProvider";
 import { Analytics } from "@vercel/analytics/react";
+import LiveChatBubble from "@/components/chat/LiveChatBubble"; // Import the new component
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,6 +34,7 @@ export default function RootLayout({
         <AuthProvider>
           <ChatProvider>
             {children}
+            <LiveChatBubble /> {/* Add the LiveChatBubble component here */}
           </ChatProvider>
         </AuthProvider>
         <Analytics />
